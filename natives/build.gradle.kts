@@ -23,8 +23,8 @@ fun requireNativeLibBuilt() {
 }
 logger.lifecycle("Target: $target, Platform: $platform, Artifact Name: $artifactName")
 
-tasks.withType<Jar> {
-    archiveBaseName.set(artifactName)
+base {
+    archivesName = artifactName
 }
 
 tasks.register<Copy>("moveResources") {
@@ -51,19 +51,7 @@ processResources.include {
     it.isDirectory || it.file.parentFile.name == platform
 }
 
-publishing {
-    publications.named<MavenPublication>("java") {
-        artifactId = artifactName
-        pom {
-            name.set(artifactName)
-        }
-    }
-}
-
 mavenPublishing {
-    coordinates(
-        artifactId = artifactName,
-    )
     pom {
         name = artifactName
     }
