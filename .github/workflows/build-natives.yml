@@ -145,11 +145,25 @@ jobs:
 
       - name: Build natives JAR (Unix)
         if: matrix.os != 'windows-2022'
-        run: ./gradlew :natives:build --no-daemon -Ptarget=${{ matrix.target }} -PmavenUsername=$MAVEN_USERNAME -PmavenUsername=$MAVEN_PASSWORD -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME -PMAVEN_CENTRAL_PASSWORD=$MAVEN_CENTRAL_PASSWORD
+        run: |
+          ./gradlew :natives:build \
+          --no-daemon \
+          -Ptarget=${{ matrix.target }} \
+          -PMAVEN_USERNAME=$MAVEN_USERNAME \
+          -PMAVEN_PASSWORD=$MAVEN_PASSWORD \
+          -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME \
+          -PMAVEN_CENTRAL_PASSWORD=$MAVEN_CENTRAL_PASSWORD
 
       - name: Build natives JAR (Windows)
         if: matrix.os == 'windows-2022'
-        run: .\gradlew.bat :natives:build --no-daemon -Ptarget=${{ matrix.target }} -PmavenUsername=$MAVEN_USERNAME -PmavenUsername=$MAVEN_PASSWORD -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME -PMAVEN_CENTRAL_PASSWORD=$MAVEN_CENTRAL_PASSWORD
+        run: |
+          .\gradlew.bat :natives:build \
+          --no-daemon \
+          -Ptarget=${{ matrix.target }} \
+          -PMAVEN_USERNAME=$MAVEN_USERNAME \
+          -PMAVEN_PASSWORD=$MAVEN_PASSWORD \
+          -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME \
+          -PMAVEN_CENTRAL_PASSWORD=$MAVEN_CENTRAL_PASSWORD
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v6
