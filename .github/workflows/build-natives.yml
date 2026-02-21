@@ -146,7 +146,7 @@ jobs:
       - name: Build natives JAR (Unix)
         if: matrix.os != 'windows-2022'
         run: |
-          ./gradlew :natives:build \
+          ./gradlew :natives:build :natives:publish \
           --no-daemon \
           -Ptarget=${{ matrix.target }} \
           -PMAVEN_USERNAME=$MAVEN_USERNAME \
@@ -157,7 +157,7 @@ jobs:
       - name: Build natives JAR (Windows)
         if: matrix.os == 'windows-2022'
         run: |
-          .\gradlew.bat :natives:build \
+          .\gradlew.bat :natives:build :natives:publish \
           --no-daemon \
           -Ptarget=${{ matrix.target }} \
           -PMAVEN_USERNAME=$MAVEN_USERNAME \

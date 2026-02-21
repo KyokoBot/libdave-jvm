@@ -1,6 +1,4 @@
 import org.gradle.kotlin.dsl.register
-import java.net.URL
-import javax.net.ssl.HttpsURLConnection
 
 dependencies {
     api(project(":api"))
