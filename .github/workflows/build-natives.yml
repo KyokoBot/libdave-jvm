@@ -4,9 +4,13 @@ name: Build natives
 
 on:
   push:
-    branches: [master, main]
+    branches: [ '**' ]
+    paths-ignore:
+      - '**.md'
   pull_request:
     branches: [master, main]
+  release:
+    types: [ published ]
   workflow_dispatch:
 
 env:
@@ -16,6 +20,11 @@ jobs:
   build:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    env:
+      MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+      MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+      MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
     strategy:
       fail-fast: false
       matrix:
@@ -77,10 +86,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: ${{ env.JAVA_VERSION }}
@@ -136,35 +145,35 @@ jobs:
 
       - name: Build natives JAR (Unix)
         if: matrix.os != 'windows-2022'
-        run: ./gradlew :natives:build -Ptarget=${{ matrix.target }} --no-daemon
+        run: ./gradlew :natives:build --no-daemon -Ptarget=${{ matrix.target }} -PmavenUsername=$MAVEN_USERNAME -PmavenUsername=$MAVEN_PASSWORD -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME -PMAVEN_CENTRAL_PASSWORD=$MAVEN_CENTRAL_PASSWORD
 
       - name: Build natives JAR (Windows)
         if: matrix.os == 'windows-2022'
-        run: .\gradlew.bat :natives:build -Ptarget=${{ matrix.target }} --no-daemon
+        run: .\gradlew.bat :natives:build --no-daemon -Ptarget=${{ matrix.target }} -PmavenUsername=$MAVEN_USERNAME -PmavenUsername=$MAVEN_PASSWORD -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME -PMAVEN_CENTRAL_PASSWORD=$MAVEN_CENTRAL_PASSWORD
 
       - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: natives-jar-${{ matrix.target }}
           path: natives/build/libs/natives-*.jar
 
       - name: Upload debug symbols (Linux)
         if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: natives-symbols-${{ matrix.target }}
           path: natives/cmake-build-${{ matrix.target }}/
 
       - name: Upload debug symbols (Windows)
         if: matrix.os == 'windows-2022'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: natives-symbols-${{ matrix.target }}
           path: natives/cmake-build-${{ matrix.target }}/*.pdb
 
       - name: Upload debug symbols (macOS)
         if: matrix.os == 'macos-14'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: natives-symbols-${{ matrix.target }}
           path: |
