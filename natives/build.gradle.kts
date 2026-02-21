@@ -51,6 +51,15 @@ processResources.include {
     it.isDirectory || it.file.parentFile.name == platform
 }
 
+publishing {
+    publications.named<MavenPublication>("java") {
+        artifactId = artifactName
+        pom {
+            name.set(artifactName)
+        }
+    }
+}
+
 mavenPublishing {
     coordinates(
         artifactId = artifactName,
