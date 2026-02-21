@@ -1,8 +1,8 @@
 import org.gradle.kotlin.dsl.register
 
 dependencies {
-    api(project(":api"))
-    api(project(":impl-jni"))
+    api(projects.api)
+    api(projects.implJni)
 }
 
 val processResources: Copy by tasks
@@ -23,6 +23,7 @@ fun requireNativeLibBuilt() {
         throw GradleException("Native library (libdave-jvm.so, libdave-jvm.dylib, or dave-jvm.dll) not found in natives/cmake-build-$target/")
     }
 }
+logger.lifecycle("Target: $target, Platform: $platform, Artifact Name: $artifactName")
 
 tasks.withType<Jar> {
     archiveBaseName.set(artifactName)

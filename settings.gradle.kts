@@ -3,6 +3,8 @@ rootProject.name = "libdave-jvm"
 include("api")
 include("impl-jni")
 
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 val targetFromCmd = gradle.startParameter.projectProperties["target"]
 val targetFromEnv = System.getenv("TARGET")
 val targetFromProps = run {

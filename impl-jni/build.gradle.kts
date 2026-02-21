@@ -1,8 +1,9 @@
 dependencies {
+    api(projects.api)
+
     compileOnly("org.jetbrains:annotations:26.0.2")
     compileOnly("io.netty:netty-buffer:4.2.10.Final")
     implementation("dev.arbjerg:lava-common:1.5.4")
-    api(project(":api"))
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
