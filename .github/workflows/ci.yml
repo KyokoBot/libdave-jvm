@@ -36,14 +36,11 @@ jobs:
       - name: Upload api Artifact
         uses: actions/upload-artifact@v6
         with:
+          name: api
           path: api/build/libs/api-*.jar
 
       - name: Upload impl-jni Artifact
         uses: actions/upload-artifact@v6
         with:
+          name: impl-jni
           path: impl-jni/build/libs/impl-jni-*.jar
-
-      - name: Upload natives Artifact
-        uses: actions/upload-artifact@v6
-        with:
-          path: natives/build/libs/natives-*.jar
