@@ -157,12 +157,12 @@ jobs:
       - name: Build natives JAR (Windows)
         if: matrix.os == 'windows-2022'
         run: |
-          .\gradlew.bat :natives:build :natives:publish \
-          --no-daemon \
-          -Ptarget=${{ matrix.target }} \
-          -PMAVEN_USERNAME=$MAVEN_USERNAME \
-          -PMAVEN_PASSWORD=$MAVEN_PASSWORD \
-          -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME \
+          .\gradlew.bat :natives:build :natives:publish ^
+          --no-daemon ^
+          -Ptarget=${{ matrix.target }} ^
+          -PMAVEN_USERNAME=$MAVEN_USERNAME ^
+          -PMAVEN_PASSWORD=$MAVEN_PASSWORD ^
+          -PMAVEN_CENTRAL_USERNAME=$MAVEN_CENTRAL_USERNAME ^
           -PMAVEN_CENTRAL_PASSWORD=$MAVEN_CENTRAL_PASSWORD
 
       - name: Upload JAR artifact
