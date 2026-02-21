@@ -1,5 +1,3 @@
-import org.gradle.kotlin.dsl.register
-
 dependencies {
     api(projects.api)
     api(projects.implJni)
@@ -54,6 +52,9 @@ processResources.include {
 }
 
 mavenPublishing {
+    coordinates(
+        artifactId = artifactName,
+    )
     pom {
         name = artifactName
     }
