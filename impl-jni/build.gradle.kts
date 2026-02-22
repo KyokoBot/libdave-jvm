@@ -1,15 +1,15 @@
 dependencies {
     api(projects.api)
 
-    compileOnly("org.jetbrains:annotations:26.0.2")
-    compileOnly("io.netty:netty-buffer:4.2.10.Final")
-    implementation("dev.arbjerg:lava-common:1.5.4")
+    compileOnly(libs.jetbrains.annotations)
+    compileOnly(libs.netty.buffer)
+    implementation(libs.lava.common)
 
-    testImplementation(platform("org.junit:junit-bom:5.11.4"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation(testFixtures(project(":api")))
-    testImplementation("ch.qos.logback:logback-classic:1.3.16")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(testFixtures(projects.api))
+    testImplementation(libs.logback)
+    testRuntimeOnly(libs.junit.platform)
     testRuntimeOnly(files("../natives/src/main/resources/")) // for the native libraries
 }
 

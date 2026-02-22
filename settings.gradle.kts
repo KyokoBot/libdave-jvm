@@ -15,6 +15,23 @@ val targetFromProps = run {
     } else null
 }
 val target = targetFromCmd ?: targetFromEnv ?: targetFromProps
-if (target != null && target.isNotEmpty()) {
+if (!target.isNullOrEmpty()) {
     include("natives")
+}
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        create("libs") {
+            library("jetbrains-annotations", "org.jetbrains", "annotations").version("26.0.2")
+            library("netty-buffer", "io.netty", "netty-buffer").version("4.2.10.Final")
+            library("lava-common", "dev.arbjerg", "lava-common").version("1.5.4")
+
+            library("junit-bom", "org.junit", "junit-bom").version("5.11.4")
+            library("junit-jupiter", "org.junit.jupiter", "junit-jupiter").version("")
+            library("junit-platform", "org.junit.platform", "junit-platform-launcher").version("")
+
+
+            library("logback", "ch.qos.logback", "logback-classic").version("1.3.16")
+        }
+    }
 }
