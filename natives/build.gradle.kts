@@ -28,11 +28,10 @@ base {
 
 tasks.named<Copy>("processResources") {
     doFirst { requireNativeLibBuilt() }
-    from("cmake-build-$target/")
-        .include {
-            it.name == "libdave-jvm.so" || it.name == "libdave-jvm.dylib" || it.name == "dave-jvm.dll"
-        }
-        .into("src/main/resources/natives/$platform")
+    from("cmake-build-$target/") {
+        include("libdave-jvm.so", "libdave-jvm.dylib", "dave-jvm.dll")
+        into("natives/$platform")
+    }
 }
 
 tasks.register<Delete>("cleanNatives") {
