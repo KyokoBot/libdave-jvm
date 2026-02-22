@@ -3,7 +3,6 @@ dependencies {
     api(projects.implJni)
 }
 
-val processResources: Copy by tasks
 val target = ext["target"]?.toString()
     ?: throw GradleException("natives project requires property 'target' (set -Ptarget= or target in gradle.properties)")
 val platform = ext["platform"]?.toString()
@@ -27,8 +26,7 @@ base {
     archivesName = artifactName
 }
 
-tasks.register<Copy>("moveResources") {
-    group = "build"
+tasks.named<Copy>("processResources") {
     doFirst { requireNativeLibBuilt() }
     from("cmake-build-$target/")
 
@@ -37,22 +35,12 @@ tasks.register<Copy>("moveResources") {
     }
 
     into("src/main/resources/natives/$platform")
-
-    processResources.dependsOn(this)
 }
 
 tasks.register<Delete>("cleanNatives") {
     group = "build"
     delete(fileTree("src/main/resources/natives"))
     tasks["clean"].dependsOn(this)
-}
-
-tasks.getByName("jar") {
-    dependsOn("moveResources")
-}
-
-processResources.include {
-    it.isDirectory || it.file.parentFile.name == platform
 }
 
 mavenPublishing {
