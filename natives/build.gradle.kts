@@ -47,7 +47,7 @@ tasks.register<Delete>("cleanNatives") {
     tasks["clean"].dependsOn(this)
 }
 
-tasks.getByName("build") {
+tasks.getByName("jar") {
     dependsOn("moveResources")
 }
 
