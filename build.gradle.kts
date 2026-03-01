@@ -128,7 +128,7 @@ data class VersionInfo(val version: String, val isCommitHash: Boolean)
 
 fun getGitVersion(): VersionInfo {
     var versionStr = ByteArrayOutputStream()
-    val result = exec {
+    var result = exec {
         standardOutput = versionStr
         errorOutput = versionStr
         isIgnoreExitValue = true
@@ -140,10 +140,14 @@ fun getGitVersion(): VersionInfo {
 
 
     versionStr = ByteArrayOutputStream()
-    exec {
+    result = exec {
         standardOutput = versionStr
         errorOutput = versionStr
+        isIgnoreExitValue = true
         commandLine("git", "describe", "--match=NeVeRmAtCh", "--always", "--abbrev=9", "--dirty")
+    }
+    if (result.exitValue != 0) {
+        throw GradleException("Failed to get git version: ${versionStr.toString().trim()}")
     }
 
     return VersionInfo(versionStr.toString().trim(), true)
