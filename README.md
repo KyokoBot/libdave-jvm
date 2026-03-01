@@ -50,8 +50,9 @@ dependencies {
     // This will transitively include the `api` module.
     implementation("moe.kyokobot.libdave:impl-jni:VERSION")
 
-    // Linux (glibc 2.35)
+    // Linux (glibc 2.28 / EL8)
     implementation("moe.kyokobot.libdave:natives-linux-x86-64:VERSION")
+    // Linux (glibc 2.35)
     implementation("moe.kyokobot.libdave:natives-linux-x86:VERSION")
     implementation("moe.kyokobot.libdave:natives-linux-aarch64:VERSION")
     implementation("moe.kyokobot.libdave:natives-linux-arm:VERSION")

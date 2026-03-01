@@ -18,16 +18,18 @@ jobs:
   build:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Ubuntu 22.04 - glibc
+          # Rocky Linux 8 - glibc
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             toolchain: natives/cmake/toolchains/linux-x86_64-gnu.cmake
-            linux_packages: "build-essential cmake ninja-build"
             bootlin_url: ""
+            container: "rockylinux:8"
+          # Ubuntu 22.04 - glibc
           - os: ubuntu-22.04
             target: i686-unknown-linux-gnu
             toolchain: natives/cmake/toolchains/linux-i686-gnu.cmake
@@ -80,18 +82,17 @@ jobs:
             osx_arch: "arm64;arm64e;x86_64"
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: "temurin"
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: "gradle"
+      - name: Install Rocky Linux 8 build deps
+        if: matrix.container == 'rockylinux:8'
+        run: |
+          dnf install -y dnf-plugins-core
+          dnf config-manager --set-enabled powertools
+          dnf group install -y "Development Tools"
+          dnf install -y epel-release
+          dnf install -y git llvm-toolset gcc make cmake ninja-build libstdc++-static glibc-devel 
 
       - name: Install Linux build deps
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-22.04' && matrix.container == ''
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.linux_packages }}
@@ -109,6 +110,16 @@ jobs:
             sudo ./relocate-sdk.sh
           fi
 
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: "gradle"
+
       - name: Configure CMake (Linux)
         if: matrix.os == 'ubuntu-22.04'
         working-directory: ${{ github.workspace }}
@@ -116,7 +127,7 @@ jobs:
           cmake -S natives -B natives/cmake-build-${{ matrix.target }} \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/${{ matrix.toolchain }}
+            -DCMAKE_TOOLCHAIN_FILE=$PWD/${{ matrix.toolchain }}
 
       - name: Configure CMake (Windows)
         if: matrix.os == 'windows-2022'
