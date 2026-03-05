@@ -29,17 +29,17 @@ jobs:
             toolchain: natives/cmake/toolchains/linux-x86_64-gnu.cmake
             bootlin_url: ""
             container: "rockylinux:8"
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            toolchain: natives/cmake/toolchains/linux-aarch64-gnu.cmake
+            bootlin_url: ""
+            container: "rockylinux:8"
           # Ubuntu 22.04 - glibc
           - os: ubuntu-22.04
             target: i686-unknown-linux-gnu
             toolchain: natives/cmake/toolchains/linux-i686-gnu.cmake
             linux_packages: "build-essential cmake ninja-build"
             bootlin_url: "https://toolchains.bootlin.com/downloads/releases/toolchains/x86-i686/tarballs/x86-i686--glibc--stable-2022.08-1.tar.bz2"
-          - os: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu
-            toolchain: natives/cmake/toolchains/linux-aarch64-gnu.cmake
-            linux_packages: "build-essential cmake ninja-build"
-            bootlin_url: "https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--glibc--stable-2022.08-1.tar.bz2"
           - os: ubuntu-22.04
             target: arm-unknown-linux-gnueabihf
             toolchain: natives/cmake/toolchains/linux-armhf-gnu.cmake
@@ -93,13 +93,13 @@ jobs:
           git config --global --add safe.directory /__w/libdave-jvm/libdave-jvm
 
       - name: Install Linux build deps
-        if: matrix.os == 'ubuntu-22.04' && matrix.container == ''
+        if: runner.os == 'Linux' && matrix.container == ''
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.linux_packages }}
 
       - name: Install Bootlin toolchain
-        if: matrix.os == 'ubuntu-22.04' && matrix.bootlin_url != ''
+        if: runner.os == 'Linux' && matrix.bootlin_url != ''
         run: |
           sudo mkdir -p /opt/toolchains
           archive="$(basename "${{ matrix.bootlin_url }}")"
@@ -122,7 +122,7 @@ jobs:
           cache: "gradle"
 
       - name: Configure CMake (Linux)
-        if: matrix.os == 'ubuntu-22.04'
+        if: runner.os == 'Linux'
         working-directory: ${{ github.workspace }}
         run: |
           cmake -S natives -B natives/cmake-build-${{ matrix.target }} \
@@ -198,7 +198,7 @@ jobs:
           path: natives/build/libs/natives-*.jar
 
       - name: Upload debug symbols (Linux)
-        if: matrix.os == 'ubuntu-22.04'
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v6
         with:
           name: natives-symbols-${{ matrix.target }}
