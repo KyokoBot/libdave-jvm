@@ -10,7 +10,7 @@ dependencies {
     testImplementation(testFixtures(projects.api))
     testImplementation(libs.logback)
     testRuntimeOnly(libs.junit.platform)
-    testRuntimeOnly(files("../natives/src/main/resources/")) // for the native libraries
+    testRuntimeOnly(project(":natives")) // for the native libraries
 }
 
 tasks.test {
