@@ -161,6 +161,7 @@ if(LINUX)
     COMMAND ${CMAKE_STRIP} --strip-debug $<TARGET_FILE:dave-jvm>
     COMMAND echo "Debug symbols stripped from $<TARGET_FILE:dave-jvm>")
 elseif(ANDROID)
+  target_link_options(dave-jvm PRIVATE "-Wl,-z,max-page-size=16384")
   add_custom_command(TARGET dave-jvm POST_BUILD
     COMMAND ${CMAKE_STRIP} --strip-debug $<TARGET_FILE:dave-jvm>
     COMMAND echo "Debug symbols stripped from $<TARGET_FILE:dave-jvm>")

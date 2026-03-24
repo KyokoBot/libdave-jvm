@@ -26,7 +26,9 @@ public class DaveNativeBindings {
     }
 
     public static DaveNativeBindings inst() {
-        if (!isAndroid()) {
+        if (isAndroid()) {
+            System.loadLibrary("dave-jvm");
+        } else {
             nativeLoader.load();
         }
         return new DaveNativeBindings();
