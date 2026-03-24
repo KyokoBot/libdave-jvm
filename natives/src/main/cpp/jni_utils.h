@@ -9,6 +9,14 @@
 #include <string>
 #include <vector>
 
+#if defined(__ANDROID__)
+#define JNI_ATTACH_ENV_TYPE JNIEnv**
+#define JNI_KEY_PAIR_CONTEXT(env, contextStr) (env)
+#else
+#define JNI_ATTACH_ENV_TYPE void**
+#define JNI_KEY_PAIR_CONTEXT(env, contextStr) (contextStr)
+#endif
+
 namespace kyoko::libdave {
 
 template <size_t N> class LocalRefHolder {
@@ -232,7 +240,7 @@ public:
     jint result = jvm->GetEnv((void **)&env, JNI_VERSION_1_6);
 
     if (result == JNI_EDETACHED) {
-      result = jvm->AttachCurrentThread((void **)&env, nullptr);
+      result = jvm->AttachCurrentThread((JNI_ATTACH_ENV_TYPE)&env, nullptr);
       if (result != JNI_OK) {
         return nullptr;
       }

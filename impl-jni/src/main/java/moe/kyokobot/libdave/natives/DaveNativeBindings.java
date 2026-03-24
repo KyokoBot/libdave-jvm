@@ -16,8 +16,21 @@ public class DaveNativeBindings {
     private DaveNativeBindings() {
     }
 
+    private static boolean isAndroid() {
+        try {
+            Class.forName("android.os.Build");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
     public static DaveNativeBindings inst() {
-        nativeLoader.load();
+        if (isAndroid()) {
+            System.loadLibrary("dave-jvm");
+        } else {
+            nativeLoader.load();
+        }
         return new DaveNativeBindings();
     }
 

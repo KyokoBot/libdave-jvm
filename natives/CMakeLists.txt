@@ -88,6 +88,7 @@ option(ENABLE_SANITIZERS "Enable address and undefined behavior sanitizers" OFF)
 set(OpenSSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake" CACHE PATH "vendored openssl")
 set(MLSPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake" CACHE PATH "vendored mlspp")
 
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 add_subdirectory(boringssl)
 
@@ -114,14 +115,19 @@ set_target_properties(
 )
 # find_package(OpenSSL REQUIRED)
 
+if(ANDROID)
+  add_library(JNI::JNI INTERFACE IMPORTED GLOBAL)
+  add_compile_options(-include jni.h)
+else()
+  find_package(JNI)
+  if(NOT JNI_FOUND)
+      message(FATAL_ERROR "JNI not found - did you forget to set JAVA_HOME?")
+  endif()
+endif()
+
 set(nlohmann_json_DIR "${CMAKE_CURRENT_SOURCE_DIR}/json-cpp")
 add_subdirectory(mlspp)
 add_subdirectory(libdave/cpp)
-
-find_package(JNI)
-if(NOT JNI_FOUND)
-  message(FATAL_ERROR "JNI not found - did you forget to set JAVA_HOME?")
-endif()
 
 set(DJ_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src/main/cpp)
 add_library(dave-jvm SHARED
@@ -152,6 +158,11 @@ if(LINUX)
   add_custom_command(TARGET dave-jvm POST_BUILD
     COMMAND ${CMAKE_STRIP} --only-keep-debug -o $<TARGET_FILE:dave-jvm>.debug $<TARGET_FILE:dave-jvm>
     COMMAND echo "Debug symbols saved to $<TARGET_FILE:dave-jvm>.debug"
+    COMMAND ${CMAKE_STRIP} --strip-debug $<TARGET_FILE:dave-jvm>
+    COMMAND echo "Debug symbols stripped from $<TARGET_FILE:dave-jvm>")
+elseif(ANDROID)
+  target_link_options(dave-jvm PRIVATE "-Wl,-z,max-page-size=16384")
+  add_custom_command(TARGET dave-jvm POST_BUILD
     COMMAND ${CMAKE_STRIP} --strip-debug $<TARGET_FILE:dave-jvm>
     COMMAND echo "Debug symbols stripped from $<TARGET_FILE:dave-jvm>")
 endif()

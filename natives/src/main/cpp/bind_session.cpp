@@ -98,7 +98,7 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveSessionCreate(
     }
   };
 
-  auto contextType = static_cast<mls::KeyPairContextType>(contextStr);
+  auto contextType = static_cast<mls::KeyPairContextType>(JNI_KEY_PAIR_CONTEXT(env, contextStr));
   auto authSessionIdStr = authStr ? std::string(authStr) : std::string();
 
   auto session = mls::CreateSession(contextType, authSessionIdStr, cppCallback);
