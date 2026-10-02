@@ -14,6 +14,14 @@ constexpr jint COMMIT_RESULT_IGNORED = -2;
 
 constexpr const char *ROSTER_MAP_CLASS_NAME = "moe/kyokobot/libdave/RosterMap";
 
+// KeyPairContextType is a raw pointer whose pointee must outlive the session.
+// The bindings pass an empty context, so hand out a shared interned string
+// instead of a pointer into released JNI string memory.
+const char *sessionContextStorage() {
+  static const std::string *storage = new std::string();
+  return storage->c_str();
+}
+
 jobject toJavaRosterMap(JNIEnv *env,
                         const discord::dave::RosterMap &rosterMap) {
   LocalRefHolder<8> holder(env);
@@ -86,7 +94,11 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveSessionCreate(
     JNIEnv *env, jobject clazz, jstring context, jstring authSessionId,
     jobject callback) {
   const char *contextStr = env->GetStringUTFChars(context, nullptr);
-  const char *authStr = env->GetStringUTFChars(authSessionId, nullptr);
+  if (contextStr == nullptr) {
+    return 0; // pending exception
+  }
+  const char *authStr =
+      authSessionId != nullptr ? env->GetStringUTFChars(authSessionId, nullptr) : nullptr;
 
   auto callbackWrapper = std::make_shared<JNICallbackWrapper>(
       env, callback, "onFailure", "(Ljava/lang/String;Ljava/lang/String;)V");
@@ -98,13 +110,15 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveSessionCreate(
     }
   };
 
-  auto contextType = static_cast<mls::KeyPairContextType>(contextStr);
+  auto contextType = static_cast<mls::KeyPairContextType>(sessionContextStorage());
   auto authSessionIdStr = authStr ? std::string(authStr) : std::string();
 
   auto session = mls::CreateSession(contextType, authSessionIdStr, cppCallback);
 
   env->ReleaseStringUTFChars(context, contextStr);
-  env->ReleaseStringUTFChars(authSessionId, authStr);
+  if (authStr != nullptr) {
+    env->ReleaseStringUTFChars(authSessionId, authStr);
+  }
 
   return reinterpret_cast<jlong>(session.release());
 }
@@ -289,7 +303,11 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveSessionGetKeyRatchet(
     JNIEnv *env, jobject clazz, jlong sessionHandle, jstring userId) {
   auto session = reinterpret_cast<mls::ISession *>(sessionHandle);
   auto userIdStr = env->GetStringUTFChars(userId, nullptr);
+  if (userIdStr == nullptr) {
+    return 0; // pending exception
+  }
   auto keyRatchet = session->GetKeyRatchet(userIdStr);
+  env->ReleaseStringUTFChars(userId, userIdStr);
   return reinterpret_cast<jlong>(keyRatchet.release());
 }
 
@@ -299,6 +317,9 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveSessionGetPairwiseFinge
     jstring userId, jobject callback) {
   auto session = reinterpret_cast<mls::ISession *>(sessionHandle);
   auto userIdStr = env->GetStringUTFChars(userId, nullptr);
+  if (userIdStr == nullptr) {
+    return; // pending exception
+  }
   auto callbackWrapper = std::make_shared<JNICallbackWrapper>(
       env, callback, "accept", "(Ljava/lang/Object;)V");
   session->GetPairwiseFingerprint(
@@ -306,7 +327,15 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveSessionGetPairwiseFinge
       [callbackWrapper](std::vector<uint8_t> const &fingerprint) {
         if (callbackWrapper && callbackWrapper->isValid()) {
           auto env = callbackWrapper->getEnv();
-          callbackWrapper->invoke(toByteArray(env, fingerprint));
+          if (env == nullptr) {
+            return;
+          }
+          auto bytes = toByteArray(env, fingerprint);
+          if (bytes == nullptr) {
+            return; // pending exception
+          }
+          callbackWrapper->invoke(bytes);
         }
       });
+  env->ReleaseStringUTFChars(userId, userIdStr);
 }

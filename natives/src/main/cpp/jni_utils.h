@@ -79,6 +79,41 @@ static inline void throwIllegalArgument(JNIEnv *env, const char *message) {
   }
 }
 
+class ScopedJNIEnv {
+private:
+  JavaVM *jvm_ = nullptr;
+  JNIEnv *env_ = nullptr;
+  bool attached_ = false;
+
+public:
+  explicit ScopedJNIEnv(JavaVM *jvm) : jvm_(jvm) {
+    if (jvm_ == nullptr) {
+      return;
+    }
+
+    jint result = jvm_->GetEnv(reinterpret_cast<void **>(&env_), JNI_VERSION_1_6);
+    if (result == JNI_EDETACHED) {
+      if (jvm_->AttachCurrentThread(reinterpret_cast<void **>(&env_), nullptr) == JNI_OK) {
+        attached_ = true;
+      } else {
+        env_ = nullptr;
+      }
+    }
+  }
+
+  ~ScopedJNIEnv() {
+    if (attached_ && jvm_ != nullptr) {
+      jvm_->DetachCurrentThread();
+    }
+  }
+
+  ScopedJNIEnv(const ScopedJNIEnv &) = delete;
+  ScopedJNIEnv &operator=(const ScopedJNIEnv &) = delete;
+
+  JNIEnv *get() const { return env_; }
+  explicit operator bool() const { return env_ != nullptr; }
+};
+
 static inline ::jobject boxedInteger(JNIEnv *env, int value) {
   LocalRefHolder<1> refs(env);
 
@@ -149,6 +184,9 @@ private:
     LocalRefHolder<2> holder(env);
     jstring jarg1 = holder.track(toJString(env, arg1));
     jstring jarg2 = holder.track(toJString(env, arg2));
+    if (jarg1 == nullptr || jarg2 == nullptr || env->ExceptionCheck()) {
+      return; // pending exception
+    }
 
     env->CallVoidMethod(callback, methodId, jarg1, jarg2);
   }
@@ -168,6 +206,9 @@ private:
     LocalRefHolder<2> holder(env);
     jstring jarg2 = holder.track(toJString(env, arg2));
     jstring jarg4 = holder.track(toJString(env, arg4));
+    if (jarg2 == nullptr || jarg4 == nullptr || env->ExceptionCheck()) {
+      return; // pending exception
+    }
 
     env->CallVoidMethod(callback, methodId, arg1, jarg2, arg3, jarg4);
   }
@@ -232,8 +273,7 @@ public:
     jint result = jvm->GetEnv((void **)&env, JNI_VERSION_1_6);
 
     if (result == JNI_EDETACHED) {
-      result = jvm->AttachCurrentThread((void **)&env, nullptr);
-      if (result != JNI_OK) {
+      if (jvm->AttachCurrentThread((void **)&env, nullptr) != JNI_OK) {
         return nullptr;
       }
     }
@@ -246,16 +286,19 @@ public:
       return;
     }
 
-    JNIEnv *env = getEnv();
-    if (env == nullptr) {
+    // Attaches the calling thread for the duration of the callback and
+    // detaches it again on scope exit, so callback threads don't accumulate
+    // as permanently-attached JVM threads over the process lifetime.
+    ScopedJNIEnv env(jvm);
+    if (!env) {
       return;
     }
 
-    callMethod(env, args...);
+    callMethod(env.get(), args...);
 
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
+    if (env.get()->ExceptionCheck()) {
+      env.get()->ExceptionDescribe();
+      env.get()->ExceptionClear();
     }
   }
 };

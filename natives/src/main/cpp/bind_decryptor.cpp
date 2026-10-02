@@ -72,9 +72,17 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveDecryptorDecrypt__JI_3B
   jboolean isCopy;
   jbyte *encryptedFrameBytes =
       env->GetByteArrayElements(encryptedFrame, &isCopy);
+  if (encryptedFrameBytes == nullptr) {
+    return -IDecryptor::DecryptionFailure; // pending exception
+  }
   jsize encryptedFrameLen = env->GetArrayLength(encryptedFrame);
 
   jbyte *frameBytes = env->GetByteArrayElements(frame, &isCopy);
+  if (frameBytes == nullptr) {
+    env->ReleaseByteArrayElements(encryptedFrame, encryptedFrameBytes,
+                                  JNI_ABORT);
+    return -IDecryptor::DecryptionFailure; // pending exception
+  }
   jsize frameLen = env->GetArrayLength(frame);
 
   size_t bytesWritten = 0;
@@ -100,13 +108,13 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveDecryptorDecrypt__JILja
   DirectBufferInfo encryptedFrameInfo;
   if (!getDirectBufferInfo(env, encryptedFrame, encryptedFrameInfo)) {
     throwIllegalArgument(env, "encryptedFrame must be a direct ByteBuffer");
-    return -1;
+    return -IDecryptor::DecryptionFailure;
   }
 
   DirectBufferInfo frameInfo;
   if (!getDirectBufferInfo(env, frame, frameInfo)) {
     throwIllegalArgument(env, "frame must be a direct ByteBuffer");
-    return -1;
+    return -IDecryptor::DecryptionFailure;
   }
 
   size_t bytesWritten = 0;
@@ -128,6 +136,12 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveDecryptorDecrypt__JIJIJ
     jlong encryptedFramePtr, jint encryptedFrameSize, jlong framePtr,
     jint frameCapacity) {
   auto decryptor = reinterpret_cast<IDecryptor *>(handle);
+
+  if (encryptedFramePtr == 0 || framePtr == 0 || encryptedFrameSize < 0 ||
+      frameCapacity < 0) {
+    throwIllegalArgument(env, "Invalid frame pointer or size");
+    return -IDecryptor::DecryptionFailure;
+  }
 
   auto encryptedFrameBytes =
       reinterpret_cast<const uint8_t *>(encryptedFramePtr);

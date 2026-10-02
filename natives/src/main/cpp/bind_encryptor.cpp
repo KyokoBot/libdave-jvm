@@ -82,10 +82,17 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveEncryptorEncrypt__JII_3
 
   jboolean isCopy;
   jbyte *frameBytes = env->GetByteArrayElements(frame, &isCopy);
+  if (frameBytes == nullptr) {
+    return -1; // pending exception
+  }
   jsize frameLen = env->GetArrayLength(frame);
 
   jbyte *encryptedFrameBytes =
       env->GetByteArrayElements(encryptedFrame, &isCopy);
+  if (encryptedFrameBytes == nullptr) {
+    env->ReleaseByteArrayElements(frame, frameBytes, JNI_ABORT);
+    return -1; // pending exception
+  }
   jsize encryptedFrameLen = env->GetArrayLength(encryptedFrame);
 
   size_t bytesWritten = 0;
@@ -139,6 +146,12 @@ Java_moe_kyokobot_libdave_natives_DaveNativeBindings_daveEncryptorEncrypt__JIIJI
     jlong framePtr, jint frameSize, jlong encryptedFramePtr,
     jint encryptedFrameCapacity) {
   auto encryptor = reinterpret_cast<IEncryptor *>(handle);
+
+  if (framePtr == 0 || encryptedFramePtr == 0 || frameSize < 0 ||
+      encryptedFrameCapacity < 0) {
+    throwIllegalArgument(env, "Invalid frame pointer or size");
+    return -1;
+  }
 
   auto frameBytes = reinterpret_cast<const uint8_t *>(framePtr);
   auto encryptedFrameBytes = reinterpret_cast<uint8_t *>(encryptedFramePtr);

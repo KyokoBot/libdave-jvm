@@ -29,7 +29,8 @@ void JvmLogSink(LoggingSeverity severity, const char *file, int line,
   }
 
   if (wrapper && wrapper->isValid()) {
-    wrapper->invoke((jint)severity, std::string(file), (jint)line, message);
+    wrapper->invoke((jint)severity, file != nullptr ? std::string(file) : std::string(),
+                    (jint)line, message);
   }
 }
 
@@ -40,6 +41,16 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
   (void)reserved;
   SetLogSink(NullLogSink);
   return JNI_VERSION_1_6;
+}
+
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
+  (void)vm;
+  (void)reserved;
+  SetLogSink(NullLogSink);
+  {
+    std::lock_guard<std::mutex> lock(gLogSinkMutex);
+    gLogSinkWrapper.reset();
+  }
 }
 
 JNIEXPORT void JNICALL
