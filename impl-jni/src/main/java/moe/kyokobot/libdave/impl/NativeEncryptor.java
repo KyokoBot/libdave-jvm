@@ -20,7 +20,12 @@ public class NativeEncryptor extends DaveNativeHandle implements Encryptor {
         if (keyRatchet instanceof NativeKeyRatchet) {
             NativeKeyRatchet nativeRatchet = (NativeKeyRatchet) keyRatchet;
             long ratchetHandle = HandleStealer.stealHandle(nativeRatchet);
-            DaveNativeBindings.inst().daveEncryptorSetKeyRatchet(handle, ratchetHandle);
+            try {
+                DaveNativeBindings.inst().daveEncryptorSetKeyRatchet(handle, ratchetHandle);
+            } catch (Throwable t) {
+                DaveNativeBindings.inst().daveKeyRatchetDestroy(ratchetHandle);
+                throw t;
+            }
         } else {
             throw new IllegalArgumentException("The passed KeyRatchet was not created by native Session!");
         }

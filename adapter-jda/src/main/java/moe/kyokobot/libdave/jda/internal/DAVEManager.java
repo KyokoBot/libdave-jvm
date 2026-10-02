@@ -57,6 +57,7 @@ public class DAVEManager implements AutoCloseable {
     public void assignSsrcToCodec(int ssrc, Codec codec) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             selfEncryptor.assignSsrcToCodec(ssrc, codec);
         } finally {
             sessionLock.unlockWrite(stamp);
@@ -66,6 +67,7 @@ public class DAVEManager implements AutoCloseable {
     public int getMaxCiphertextByteSize(MediaType mediaType, int frameSize) {
         long stamp = sessionLock.readLock();
         try {
+            if (closed) return frameSize;
             return selfEncryptor.getMaxCiphertextByteSize(mediaType, frameSize);
         } finally {
             sessionLock.unlockRead(stamp);
@@ -75,6 +77,7 @@ public class DAVEManager implements AutoCloseable {
     public int getMaxPlaintextByteSize(MediaType mediaType, long userId, int frameSize) {
         long stamp = sessionLock.readLock();
         try {
+            if (closed) return frameSize;
             Decryptor decryptor = decryptors.get(userId);
             if (decryptor == null) {
                 return frameSize;
@@ -86,9 +89,9 @@ public class DAVEManager implements AutoCloseable {
     }
 
     public void addUser(long userId) {
-        if (closed) return;
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             logger.debug("Adding user {}", userId);
             recognizedUserIds.add(userId);
 
@@ -101,9 +104,9 @@ public class DAVEManager implements AutoCloseable {
     }
 
     public void removeUser(long userId) {
-        if (closed) return;
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             logger.debug("Removing user {}", userId);
             recognizedUserIds.remove(userId);
             activeE2EEUsers.remove(userId);
@@ -117,10 +120,9 @@ public class DAVEManager implements AutoCloseable {
     }
 
     public boolean encrypt(MediaType mediaType, int ssrc, ByteBuffer input, ByteBuffer output) {
-        if (closed) return false;
-
         long stamp = sessionLock.readLock();
         try {
+            if (closed) return false;
             int result = this.selfEncryptor.encrypt(mediaType, ssrc, input, output);
             boolean success = result >= 0;
             if (success) {
@@ -133,10 +135,9 @@ public class DAVEManager implements AutoCloseable {
     }
 
     public boolean decrypt(MediaType mediaType, long userId, ByteBuffer input, ByteBuffer output) {
-        if (closed) return false;
-
         long stamp = sessionLock.readLock();
         try {
+            if (closed) return false;
             Decryptor decryptor = decryptors.get(userId);
             if (decryptor == null) return false;
 
@@ -154,6 +155,7 @@ public class DAVEManager implements AutoCloseable {
     public void onSelectProtocolAck(int protocolVersion) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             logger.debug("Handle select protocol version {}", protocolVersion);
             daveProtocolInit(protocolVersion);
         } finally {
@@ -164,6 +166,7 @@ public class DAVEManager implements AutoCloseable {
     public void onDaveProtocolPrepareTransition(int transitionId, int protocolVersion) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             logger.debug("Preparing transition to protocol version={} (ID {})", protocolVersion, transitionId);
             prepareRatchets(transitionId, protocolVersion);
             if (transitionId != INIT_TRANSITION_ID) {
@@ -177,6 +180,7 @@ public class DAVEManager implements AutoCloseable {
     public void onDaveProtocolExecuteTransition(int transitionId) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             logger.debug("Executing transition (ID {})", transitionId);
             executeTransition(transitionId);
         } finally {
@@ -187,6 +191,7 @@ public class DAVEManager implements AutoCloseable {
     public void onDaveProtocolPrepareEpoch(long epoch, int protocolVersion) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             logger.debug("Preparing epoch {} (protocol version {})", epoch, protocolVersion);
             prepareEpoch(epoch, protocolVersion);
 
@@ -201,6 +206,7 @@ public class DAVEManager implements AutoCloseable {
     public void onDaveProtocolMLSExternalSenderPackage(ByteBuffer externalSenderPackage) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             byte[] bytes = new byte[externalSenderPackage.remaining()];
             externalSenderPackage.get(bytes);
             daveSession.setExternalSender(bytes);
@@ -212,6 +218,7 @@ public class DAVEManager implements AutoCloseable {
     public void onMLSProposals(ByteBuffer proposals) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             byte[] bytes = new byte[proposals.remaining()];
             proposals.get(bytes);
             byte[] commitWelcome = daveSession.processProposals(bytes, recognizedUserIdArray());
@@ -226,6 +233,7 @@ public class DAVEManager implements AutoCloseable {
     public void onMLSPrepareCommitTransition(int transitionId, ByteBuffer commit) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             byte[] bytes = new byte[commit.remaining()];
             commit.get(bytes);
             CommitResult result = daveSession.processCommit(bytes);
@@ -255,6 +263,7 @@ public class DAVEManager implements AutoCloseable {
     public void onMLSWelcome(int transitionId, ByteBuffer welcome) {
         long stamp = sessionLock.writeLock();
         try {
+            if (closed) return;
             byte[] bytes = new byte[welcome.remaining()];
             welcome.get(bytes);
             RosterMap roster = daveSession.processWelcome(bytes, recognizedUserIdArray());

@@ -5,7 +5,7 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public abstract class DaveNativeHandle implements AutoCloseable {
     protected final long handle;
-    protected boolean closed;
+    protected volatile boolean closed;
 
     protected DaveNativeHandle(long handle) {
         if (handle == 0) {
