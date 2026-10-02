@@ -37,7 +37,11 @@ elseif(MSVC)
 endif()
 
 # Configure sanitizers
-if (ENABLE_SANITIZERS)
+## KOE PATCH BEGIN
+# Skip our own (Debug-only) sanitizer setup when the parent project already
+# configured sanitizers globally.
+if (ENABLE_SANITIZERS AND NOT LIBDAVE_SANITIZERS_CONFIGURED)
+## KOE PATCH END
   if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     message(FATAL_ERROR "Sanitizers are only supported for Debug builds")
   endif()

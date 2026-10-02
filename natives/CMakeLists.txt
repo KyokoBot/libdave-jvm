@@ -10,10 +10,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT error)
-if(ipo_supported)
+## KOE PATCH BEGIN
+# Respect a user-provided CMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF (needed for
+# sanitizer builds; ThinLTO bitcode breaks the sanitizer-instrumented link).
+if(ipo_supported AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+## KOE PATCH END
   set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
   message(STATUS "LTO/IPO enabled")
-else()
+elseif(NOT ipo_supported)
   message(WARNING "IPO is not supported: ${error}")
 endif()
 
@@ -84,6 +88,19 @@ option(BUILD_TESTING "Build tests" OFF)
 option(PERSISTENT_KEYS "Enable storage of persistent signature keys" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(ENABLE_SANITIZERS "Enable address and undefined behavior sanitizers" OFF)
+## KOE PATCH BEGIN
+if(ENABLE_SANITIZERS AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU"))
+  # Propagate to the JNI glue and all vendored subprojects (mlspp uses its own
+  # SANITIZERS option, libdave consumes ENABLE_SANITIZERS itself).
+  add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls)
+  add_link_options(-fsanitize=address,undefined)
+  set(SANITIZERS ON)
+  # Tell vendored libdave that sanitizers are already configured at the top
+  # level, so it skips its own (Debug-only) flag setup.
+  set(LIBDAVE_SANITIZERS_CONFIGURED ON)
+  message(STATUS "Sanitizers enabled globally: address, undefined")
+endif()
+## KOE PATCH END
 
 set(OpenSSL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake" CACHE PATH "vendored openssl")
 set(MLSPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake" CACHE PATH "vendored mlspp")
