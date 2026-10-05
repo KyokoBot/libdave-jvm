@@ -12,7 +12,10 @@ namespace {
 
 using LogSinkHolder = CallbackHolder<kyoko_dave_log_sink_callback>;
 
-std::shared_ptr<LogSinkHolder> gLogSink;
+// Leaked intentionally: a static destructor would release the sink's user_data
+// which would cause the JVM to abort.
+std::shared_ptr<LogSinkHolder> &gLogSink =
+    *new std::shared_ptr<LogSinkHolder>();
 std::mutex gLogSinkMutex;
 
 void NullLogSink(LoggingSeverity severity, const char *file, int line,
