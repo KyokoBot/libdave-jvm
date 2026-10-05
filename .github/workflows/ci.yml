@@ -47,6 +47,12 @@ jobs:
           name: impl-jni
           path: impl-jni/build/libs/impl-jni-*.jar
 
+      - name: Upload impl-ffm Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: impl-ffm
+          path: impl-ffm/build/libs/impl-ffm-*.jar
+
       - name: Upload adapter-jda Artifact
         uses: actions/upload-artifact@v6
         with:

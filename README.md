@@ -7,12 +7,13 @@ This repository contains a Java implementation of [Discord's E2EE DAVE protocol]
 This project only provides the cryptographic support and the complex parts of the MLS protocol - it does not communicate with any servers directly. 
 It is intended to be consumed by other libraries that interact with Discord's voice servers or API, such as [Koe](https://github.com/KyokoBot/koe) or [JDA](https://github.com/discord-jda/JDA).
 
-Minimum Java version is 8. See below for native dependency compatibility.
+Minimum Java version is 8 (22 for `impl-ffm`). See below for native dependency compatibility.
 
 ## Modules
 
 - **`api`**: Defines the common Java interfaces for the DAVE protocol (Session, Encryptor, Decryptor, etc.).
 - **`impl-jni`**: An implementation of the API that binds to the official C++ `libdave` using JNI. Strongly recommended for production use.
+- **`impl-ffm`**: The same bindings implemented with the Foreign Function & Memory API instead of JNI. Requires Java 22+ and native access to be enabled (e.g. `--enable-native-access=ALL-UNNAMED`). Uses the same natives artifacts as `impl-jni`.
 - **`natives`**: Contains the CMake project for the `libdave` bindings and supporting Gradle project that handles publishing the natives to a Maven repository.
 
 ## Usage
@@ -49,6 +50,8 @@ repositories {
 dependencies {
     // This will transitively include the `api` module.
     implementation("moe.kyokobot.libdave:impl-jni:VERSION")
+    // or, on Java 22+:
+    // implementation("moe.kyokobot.libdave:impl-ffm:VERSION")
 
     // Linux (glibc 2.28 / EL8)
     implementation("moe.kyokobot.libdave:natives-linux-x86-64:VERSION")

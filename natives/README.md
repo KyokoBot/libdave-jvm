@@ -4,6 +4,16 @@ This directory contains the native libraries for the libdave-jvm project.
 
 We vendor everything using [git-subrepo](https://github.com/ingydotnet/git-subrepo). No internet access or external build tools like `vcpkg` are required.
 
+## Exported symbols
+
+The shared library exports only:
+
+- the JNI entry points used by `impl-jni` (`Java_moe_kyokobot_libdave_natives_DaveNativeBindings_*`, `JNI_OnLoad`),
+- a plain C ABI, `kyoko_dave_*`, declared in [src/main/cpp/kyoko_dave.h](src/main/cpp/kyoko_dave.h) and used by `impl-ffm`.
+
+The JNI entry points are thin adapters over the `kyoko_dave_*` functions, and both hand out the same handles.
+libdave's own C API (`dave*`) is not exported.
+
 ## Building
 
 ```bash

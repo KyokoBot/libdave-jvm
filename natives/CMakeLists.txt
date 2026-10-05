@@ -165,7 +165,7 @@ foreach(_config Release Debug RelWithDebInfo MinSizeRel)
 endforeach()
 
 if(LINUX)
-  target_link_options(dave-jvm PRIVATE "-Wl,--version-script,${DJ_ROOT}/libdave.exports" "-Wl,--build-id" "-static-libstdc++" "-static-libgcc")
+  target_link_options(dave-jvm PRIVATE "-Wl,--version-script,${DJ_ROOT}/libdave.exports" "-Wl,--gc-sections" "-Wl,--build-id" "-static-libstdc++" "-static-libgcc")
   add_custom_command(TARGET dave-jvm POST_BUILD
     COMMAND ${CMAKE_STRIP} --only-keep-debug -o $<TARGET_FILE:dave-jvm>.debug $<TARGET_FILE:dave-jvm>
     COMMAND echo "Debug symbols saved to $<TARGET_FILE:dave-jvm>.debug"

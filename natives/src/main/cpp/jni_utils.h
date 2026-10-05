@@ -62,13 +62,47 @@ static inline bool copyByteArrayToVector(JNIEnv *env, jbyteArray array,
   return true;
 }
 
-static inline ::jbyteArray toByteArray(JNIEnv *env, const std::vector<uint8_t> &vector) {
-  auto arraySize = static_cast<jsize>(vector.size());
+static inline ::jbyteArray toByteArray(JNIEnv *env, const uint8_t *data,
+                                       size_t size) {
+  auto arraySize = static_cast<jsize>(size);
   auto array = env->NewByteArray(arraySize);
-  env->SetByteArrayRegion(array, 0, arraySize,
-                          reinterpret_cast<const jbyte *>(vector.data()));
+  if (array == nullptr) {
+    return nullptr; // pending exception
+  }
+  if (arraySize > 0) {
+    env->SetByteArrayRegion(array, 0, arraySize,
+                            reinterpret_cast<const jbyte *>(data));
+  }
   return array;
 }
+
+static inline ::jbyteArray toByteArray(JNIEnv *env, const std::vector<uint8_t> &vector) {
+  return toByteArray(env, vector.data(), vector.size());
+}
+
+class ScopedUTFChars {
+private:
+  JNIEnv *env_;
+  jstring string_;
+  const char *chars_;
+
+public:
+  ScopedUTFChars(JNIEnv *env, jstring string)
+      : env_(env), string_(string),
+        chars_(string != nullptr ? env->GetStringUTFChars(string, nullptr)
+                                 : nullptr) {}
+
+  ~ScopedUTFChars() {
+    if (chars_ != nullptr) {
+      env_->ReleaseStringUTFChars(string_, chars_);
+    }
+  }
+
+  ScopedUTFChars(const ScopedUTFChars &) = delete;
+  ScopedUTFChars &operator=(const ScopedUTFChars &) = delete;
+
+  const char *get() const { return chars_; }
+};
 
 static inline void throwIllegalArgument(JNIEnv *env, const char *message) {
   LocalRefHolder<1> holder(env);
@@ -191,10 +225,14 @@ private:
     env->CallVoidMethod(callback, methodId, jarg1, jarg2);
   }
 
-  void callMethod(JNIEnv *env, jbyteArray arg1) {
+  void callMethod(JNIEnv *env, const uint8_t *data, size_t size) {
     LocalRefHolder<1> holder(env);
-    holder.track(arg1);
-    env->CallVoidMethod(callback, methodId, arg1);
+    jbyteArray jarg1 = holder.track(toByteArray(env, data, size));
+    if (jarg1 == nullptr) {
+      return; // pending exception
+    }
+
+    env->CallVoidMethod(callback, methodId, jarg1);
   }
 
   void callMethod(JNIEnv *env) {
@@ -246,9 +284,11 @@ public:
 
   ~JNICallbackWrapper() {
     if (callback != nullptr && jvm != nullptr) {
-      JNIEnv *env = getEnv();
-      if (env != nullptr) {
-        env->DeleteGlobalRef(callback);
+      // May run on a native thread (e.g. the pairwise fingerprint worker), so
+      // don't leave it attached.
+      ScopedJNIEnv env(jvm);
+      if (env) {
+        env.get()->DeleteGlobalRef(callback);
       }
     }
   }
@@ -263,23 +303,6 @@ public:
   }
 
   bool isValid() const { return callback != nullptr && methodId != nullptr; }
-
-  JNIEnv *getEnv() const {
-    if (jvm == nullptr) {
-      return nullptr;
-    }
-
-    JNIEnv *env = nullptr;
-    jint result = jvm->GetEnv((void **)&env, JNI_VERSION_1_6);
-
-    if (result == JNI_EDETACHED) {
-      if (jvm->AttachCurrentThread((void **)&env, nullptr) != JNI_OK) {
-        return nullptr;
-      }
-    }
-
-    return env;
-  }
 
   template <typename... Args> void invoke(Args... args) {
     if (!isValid()) {
@@ -302,6 +325,25 @@ public:
     }
   }
 };
+
+// Allocates a wrapper to be passed as a kyoko_dave callback's user_data, with
+// deleteCallbackWrapper as its user_data_free. Returns nullptr if callback is
+// null or the method could not be resolved.
+static inline JNICallbackWrapper *newCallbackWrapper(JNIEnv *env,
+                                                     jobject callback,
+                                                     const char *methodName,
+                                                     const char *signature) {
+  auto wrapper = new JNICallbackWrapper(env, callback, methodName, signature);
+  if (!wrapper->isValid()) {
+    delete wrapper;
+    return nullptr;
+  }
+  return wrapper;
+}
+
+static inline void deleteCallbackWrapper(void *userData) {
+  delete static_cast<JNICallbackWrapper *>(userData);
+}
 
 } // namespace kyoko::libdave
 

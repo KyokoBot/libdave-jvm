@@ -2,6 +2,7 @@ rootProject.name = "libdave-jvm"
 
 include("api")
 include("impl-jni")
+include("impl-ffm")
 
 include("adapter-jda")
 

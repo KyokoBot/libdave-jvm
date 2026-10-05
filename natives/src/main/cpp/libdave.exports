@@ -2,5 +2,6 @@
   global:
     JNI_OnLoad;
     Java_moe_kyokobot_libdave_natives_DaveNativeBindings_*;
+    kyoko_dave_*;
   local: *;
 };
