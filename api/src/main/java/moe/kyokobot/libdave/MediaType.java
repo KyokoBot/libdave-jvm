@@ -4,7 +4,9 @@ package moe.kyokobot.libdave;
  * Enumeration of media types (Audio/Video).
  */
 public enum MediaType {
+    /** Audio frames. */
     AUDIO(0),
+    /** Video frames. */
     VIDEO(1);
 
     private final int value;

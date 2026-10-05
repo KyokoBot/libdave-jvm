@@ -8,9 +8,22 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
+/**
+ * JDA {@link DaveSession} backed by libdave-jvm.
+ *
+ * @see LDJDADaveSessionFactory
+ */
 public class LDJDADaveSession implements DaveSession {
     private final DAVEManager manager;
 
+    /**
+     * Creates a session for a voice connection.
+     *
+     * @param factory   The libdave-jvm factory used to create the session, encryptor and decryptors.
+     * @param userId    The ID of the local user.
+     * @param channelId The ID of the voice channel.
+     * @param callbacks Callbacks for sending DAVE protocol messages back to the voice gateway.
+     */
     public LDJDADaveSession(DaveFactory factory, long userId, long channelId, DaveProtocolCallbacks callbacks) {
         this.manager = new DAVEManager(factory, userId, channelId, callbacks);
     }

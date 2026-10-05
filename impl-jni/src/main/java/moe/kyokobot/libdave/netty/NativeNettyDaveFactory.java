@@ -5,7 +5,16 @@ import moe.kyokobot.libdave.Encryptor;
 import moe.kyokobot.libdave.NativeDaveFactory;
 import moe.kyokobot.libdave.impl.*;
 
+/**
+ * {@link NativeDaveFactory} that can also convert its encryptors and decryptors to Netty-enabled ones.
+ */
 public class NativeNettyDaveFactory extends NativeDaveFactory implements NettyDaveFactory {
+    /**
+     * Creates a new factory. The native library is loaded on first use.
+     */
+    public NativeNettyDaveFactory() {
+    }
+
     @Override
     public NettyDecryptor fromDecryptor(Decryptor decryptor) {
         if (decryptor instanceof NativeNettyDecryptor) {

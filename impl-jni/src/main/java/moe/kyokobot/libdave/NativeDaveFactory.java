@@ -8,11 +8,20 @@ import moe.kyokobot.libdave.impl.NativeSession;
 import moe.kyokobot.libdave.natives.DaveNativeBindings;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * {@link DaveFactory} backed by JNI bindings to the native DAVE library.
+ */
 public class NativeDaveFactory implements DaveFactory {
+    /**
+     * Creates a new factory. The native library is loaded on first use.
+     */
+    public NativeDaveFactory() {
+    }
+
     /**
      * Loads the native library and ensures that {@link NativeDaveFactory} can be used on this platform.
      *
-     * @throws {@link RuntimeException} if the native library could not be loaded and the factory is not safe to use.
+     * @throws RuntimeException if the native library could not be loaded and the factory is not safe to use.
      */
     public static void ensureAvailable() throws RuntimeException {
         try {

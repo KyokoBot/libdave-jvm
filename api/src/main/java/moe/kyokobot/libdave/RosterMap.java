@@ -20,6 +20,14 @@ public class RosterMap implements Map<Long, byte[]> {
     private final long[] keys;
     private final byte[][] values;
 
+    /**
+     * Creates a roster map from parallel arrays. The arrays are used as-is and must not be modified afterwards.
+     *
+     * @param keys   The user IDs.
+     * @param values The key data for each user ID, at the same index as in {@code keys}.
+     * @throws IllegalArgumentException if the arrays differ in length.
+     * @throws NullPointerException     if any value is null.
+     */
     public RosterMap(long[] keys, byte[][] values) {
         if (keys.length != values.length) {
             throw new IllegalArgumentException("keys and values must have the same length");
@@ -74,6 +82,12 @@ public class RosterMap implements Map<Long, byte[]> {
         return get((long) (Long) key);
     }
 
+    /**
+     * Returns the key data for a user ID without boxing.
+     *
+     * @param key The user ID.
+     * @return The key data, or null if the user ID is not in the roster.
+     */
     public byte[] get(long key) {
         for (int i = 0; i < keys.length; i++) {
             if (keys[i] == key) {

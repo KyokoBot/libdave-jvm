@@ -4,6 +4,18 @@ import moe.kyokobot.libdave.DaveFactory;
 import moe.kyokobot.libdave.Decryptor;
 import moe.kyokobot.libdave.Encryptor;
 
+/**
+ * Factory for creating Netty-enabled decryptors and encryptors.
+ * <p>
+ * Creates instances of {@link NettyDecryptor} and {@link NettyEncryptor} that support
+ * direct operations on Netty {@code ByteBuf} for improved performance and reduced allocations.
+ * <p>
+ * <b>Requirements:</b> This requires {@code io.netty:netty-buffer} to be available on the classpath.
+ * Loading any classes from this package without Netty will result in {@link ClassNotFoundException}.
+ *
+ * @see NettyDecryptor
+ * @see NettyEncryptor
+ */
 public interface NettyDaveFactory extends DaveFactory {
     /**
      * Converts a {@link Decryptor} into a Netty-enabled {@link NettyDecryptor}.

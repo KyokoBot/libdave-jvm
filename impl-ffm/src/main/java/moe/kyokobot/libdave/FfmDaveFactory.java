@@ -19,6 +19,12 @@ import java.lang.foreign.MemorySegment;
  */
 public class FfmDaveFactory implements DaveFactory {
     /**
+     * Creates a new factory. The native library is loaded on first use.
+     */
+    public FfmDaveFactory() {
+    }
+
+    /**
      * Loads the native library and ensures that {@link FfmDaveFactory} can be used on this platform.
      *
      * @throws RuntimeException if the native library could not be loaded and the factory is not safe to use.

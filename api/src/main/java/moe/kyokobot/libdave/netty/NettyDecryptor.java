@@ -5,16 +5,12 @@ import moe.kyokobot.libdave.Decryptor;
 import moe.kyokobot.libdave.MediaType;
 
 /**
- * Factory for creating Netty-enabled decryptors and encryptors.
+ * A {@link Decryptor} that can also decrypt directly between Netty {@link ByteBuf}s.
  * <p>
- * Creates instances of {@link NettyDecryptor} and {@link NettyEncryptor} that support
- * direct operations on Netty {@link ByteBuf} for improved performance and reduced allocations.
- * <p>
- * <b>Requirements:</b> This requires {@code io.netty:netty-buffer} to be available on the classpath.
- * Loading any classes from this package without Netty will result in {@link ClassNotFoundException}.
+ * Both buffers must be direct. The encrypted frame is read from the readable bytes of {@code encryptedFrame}, and the
+ * decrypted frame is written at the writer index of {@code frame}, which is advanced on success.
  *
- * @see NettyDecryptor
- * @see NettyEncryptor
+ * @see NettyDaveFactory#fromDecryptor(Decryptor)
  */
 public interface NettyDecryptor extends Decryptor {
     /**

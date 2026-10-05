@@ -18,14 +18,30 @@ public class CommitResult {
     private static final CommitResult INSTANCE_FAILED = new CommitResult(COMMIT_RESULT_FAILED);
     private static final CommitResult INSTANCE_IGNORED = new CommitResult(COMMIT_RESULT_IGNORED);
 
+    /**
+     * Returns the result for a commit that failed to process.
+     *
+     * @return The shared failed result.
+     */
     public static CommitResult failed() {
         return INSTANCE_FAILED;
     }
 
+    /**
+     * Returns the result for a commit that was ignored.
+     *
+     * @return The shared ignored result.
+     */
     public static CommitResult ignored() {
         return INSTANCE_IGNORED;
     }
 
+    /**
+     * Creates the result for a successfully processed commit.
+     *
+     * @param rosterMap The roster changes resulting from the commit.
+     * @return A successful result carrying {@code rosterMap}.
+     */
     public static CommitResult success(@NotNull RosterMap rosterMap) {
         return new CommitResult(rosterMap);
     }

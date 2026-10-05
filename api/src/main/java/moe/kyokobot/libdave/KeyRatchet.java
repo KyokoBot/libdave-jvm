@@ -7,8 +7,19 @@ package moe.kyokobot.libdave;
  * to the ratchet state.
  */
 public interface KeyRatchet extends AutoCloseable {
+    /**
+     * Derives the encryption key for a key generation.
+     *
+     * @param keyGeneration The key generation.
+     * @return The key bytes, or an empty array if the key could not be derived (for example after it was deleted).
+     */
     byte[] getEncryptionKey(int keyGeneration);
 
+    /**
+     * Deletes the key for a key generation, so it can no longer be derived from this ratchet.
+     *
+     * @param keyGeneration The key generation.
+     */
     void deleteKey(int keyGeneration);
 
     @Override

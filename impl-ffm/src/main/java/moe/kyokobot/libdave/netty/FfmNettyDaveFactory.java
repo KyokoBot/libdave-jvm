@@ -8,7 +8,16 @@ import moe.kyokobot.libdave.ffm.FfmEncryptor;
 import moe.kyokobot.libdave.ffm.FfmNettyDecryptor;
 import moe.kyokobot.libdave.ffm.FfmNettyEncryptor;
 
+/**
+ * {@link FfmDaveFactory} that can also convert its encryptors and decryptors to Netty-enabled ones.
+ */
 public class FfmNettyDaveFactory extends FfmDaveFactory implements NettyDaveFactory {
+    /**
+     * Creates a new factory. The native library is loaded on first use.
+     */
+    public FfmNettyDaveFactory() {
+    }
+
     @Override
     public NettyDecryptor fromDecryptor(Decryptor decryptor) {
         if (decryptor instanceof FfmNettyDecryptor nettyDecryptor) {

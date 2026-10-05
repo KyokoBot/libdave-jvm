@@ -6,12 +6,19 @@ package moe.kyokobot.libdave;
  * These values correspond to the codec identifiers used in the DAVE protocol.
  */
 public enum Codec {
+    /** Unknown or unspecified codec. */
     UNKNOWN(0),
+    /** Opus audio. */
     OPUS(1),
+    /** VP8 video. */
     VP8(2),
+    /** VP9 video. */
     VP9(3),
+    /** H.264 (AVC) video. */
     H264(4),
+    /** H.265 (HEVC) video. */
     H265(5),
+    /** AV1 video. */
     AV1(6);
 
     private final int value;

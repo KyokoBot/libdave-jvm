@@ -20,6 +20,18 @@ subprojects {
         options.release.set(8)
     }
 
+    tasks.named<Javadoc>("javadoc") {
+        // These packages are public only for cross-package access within the library, not for consumers.
+        exclude(
+            "moe/kyokobot/libdave/impl/**",
+            "moe/kyokobot/libdave/natives/**",
+            "moe/kyokobot/libdave/ffm/**",
+            "moe/kyokobot/libdave/jda/internal/**",
+        )
+        // Documented classes still reference the excluded ones, so javadoc has to resolve them from compiled classes.
+        classpath += project.the<SourceSetContainer>()["main"].output
+    }
+
     repositories {
         mavenLocal()
         mavenCentral()
