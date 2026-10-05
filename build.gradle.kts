@@ -1,9 +1,8 @@
 // mostly yanked from https://github.com/MinnDevelopment/udpqueue.rs/blob/master/build.gradle.kts
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
-import com.vanniktech.maven.publish.SonatypeHost
 
 plugins {
-    id("com.vanniktech.maven.publish") version "0.32.0" apply false
+    id("com.vanniktech.maven.publish") version "0.37.0" apply false
 }
 
 val gitVersionInfo = getGitVersion()
@@ -87,7 +86,7 @@ subprojects {
                 val mavenCentralUsername = findProperty("mavenCentralUsername") as String?
                 val mavenCentralPassword = findProperty("mavenCentralPassword") as String?
                 if (!mavenCentralUsername.isNullOrEmpty() && !mavenCentralPassword.isNullOrEmpty()) {
-                    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, false)
+                    publishToMavenCentral(automaticRelease = false)
                     if (!gitVersionInfo.isCommitHash) {
                         signAllPublications()
                     }
