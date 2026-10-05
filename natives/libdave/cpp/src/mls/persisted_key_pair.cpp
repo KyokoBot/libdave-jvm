@@ -76,8 +76,8 @@ std::shared_ptr<::mlspp::SignaturePrivateKey> GetPersistedKeyPair(KeyPairContext
 
 KeyAndSelfSignature GetPersistedPublicKey(KeyPairContextType ctx,
                                           const std::string& sessionID,
-                                          SignatureVersion version)
-{
+                                          SignatureVersion version) noexcept
+try {
     auto suite = CiphersuiteForSignatureVersion(version);
 
     auto pair = GetPersistedKeyPair(ctx, sessionID, suite);
@@ -92,6 +92,10 @@ KeyAndSelfSignature GetPersistedPublicKey(KeyPairContextType ctx,
       pair->public_key.data.as_vec(),
       std::move(pair->sign(suite, SelfSignatureLabel, sign_data).as_vec()),
     };
+}
+catch (std::exception& ex) {
+    DISCORD_LOG(LS_ERROR) << "Exception in GetPersistedPublicKey: " << ex.what();
+    return {};
 }
 
 bool DeletePersistedKeyPair([[maybe_unused]] KeyPairContextType ctx,

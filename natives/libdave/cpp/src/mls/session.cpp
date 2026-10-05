@@ -113,8 +113,7 @@ std::vector<uint8_t> Session::GetLastEpochAuthenticator() const noexcept
 void Session::SetExternalSender(const std::vector<uint8_t>& marshalledExternalSender) noexcept
 try {
     if (currentState_) {
-        DISCORD_LOG(LS_ERROR) << "Cannot set external sender after joining/creating an MLS group";
-        return;
+        throw std::logic_error("Cannot set external sender after joining/creating an MLS group");
     }
 
     DISCORD_LOG(LS_INFO) << "Unmarshalling MLS external sender";
@@ -144,6 +143,7 @@ try {
     if (!pendingGroupState_ && !currentState_) {
         DISCORD_LOG(LS_ERROR)
           << "Cannot process proposals without any pending or established MLS group state";
+        TRACK_MLS_ERROR("Got proposal without MLS state");
         return std::nullopt;
     }
 
@@ -330,30 +330,32 @@ bool Session::ValidateProposalMessage(::mlspp::AuthenticatedContent const& messa
     return true;
 }
 
-bool Session::CanProcessCommit(const ::mlspp::MLSMessage& commit) noexcept
-{
-    if (!stateWithProposals_) {
-        return false;
-    }
-
-    if (commit.group_id() != groupId_) {
-        DISCORD_LOG(LS_ERROR) << "MLS commit message was for unexpected group";
-        return false;
-    }
-
-    return true;
-}
-
 RosterVariant Session::ProcessCommit(std::vector<uint8_t> commit) noexcept
 try {
     DISCORD_LOG(LS_INFO) << "Processing commit";
     DISCORD_LOG(LS_INFO) << "Commit: " << ::mlspp::bytes_ns::bytes(commit);
 
+    if (!stateWithProposals_) {
+        if (!currentState_) {
+            // Avoid treating this as a failure and requesting a reset,
+            // potentially causing thrashing, if an in-flight commit
+            // comes in while we're resetting.
+            DISCORD_LOG(LS_ERROR) << "ProcessCommit called without state";
+            TRACK_MLS_ERROR("Received commit without state");
+            return ignored_t{};
+        }
+        throw std::invalid_argument("ProcessCommit called without queued proposals");
+    }
+
     auto commitMessage = ::mlspp::tls::get<::mlspp::MLSMessage>(commit);
 
-    if (!CanProcessCommit(commitMessage)) {
-        DISCORD_LOG(LS_ERROR) << "ProcessCommit called with unprocessable MLS commit";
-        return ignored_t{};
+    bool isGroupInitializationCommit = pendingGroupCommit_ && commitMessage == *pendingGroupCommit_;
+    if (!currentState_ && !isGroupInitializationCommit) {
+        throw std::invalid_argument("Unexpected commit before welcome");
+    }
+
+    if (commitMessage.group_id() != groupId_) {
+        throw std::invalid_argument("MLS commit message was for unexpected group");
     }
 
     // in case we're the sender of this commit
@@ -395,8 +397,7 @@ try {
     auto newState = stateWithProposals_->handle(validatedMessage, optionalCachedState);
 
     if (!newState) {
-        DISCORD_LOG(LS_ERROR) << "MLS commit handling did not produce a new state";
-        return failed_t{};
+        throw std::runtime_error("Commit handling did not produce a new state");
     }
 
     DISCORD_LOG(LS_INFO) << "Successfully processed MLS commit, updating state; our leaf index is "
@@ -421,19 +422,25 @@ std::optional<RosterMap> Session::ProcessWelcome(
   std::vector<uint8_t> welcome,
   std::set<std::string> const& recognizedUserIDs) noexcept
 try {
-    if (!HasCryptographicStateForWelcome()) {
-        DISCORD_LOG(LS_ERROR) << "Missing local cyrpto state necessary to process MLS welcome";
-        return std::nullopt;
+    if (!joinKeyPackage_) {
+        throw std::invalid_argument("Missing join key package");
+    }
+    if (!joinInitPrivateKey_) {
+        throw std::invalid_argument("Missing join init private key");
+    }
+    if (!selfSigPrivateKey_) {
+        throw std::invalid_argument("Missing self-sig private key");
+    }
+    if (!selfHPKEPrivateKey_) {
+        throw std::invalid_argument("Missing self-HPKE private key");
     }
 
     if (!externalSender_) {
-        DISCORD_LOG(LS_ERROR) << "Cannot process MLS welcome without an external sender";
-        return std::nullopt;
+        throw std::invalid_argument("Missing external sender");
     }
 
     if (currentState_) {
-        DISCORD_LOG(LS_ERROR) << "Cannot process MLS welcome after joining/creating an MLS group";
-        return std::nullopt;
+        throw std::invalid_argument("Already joined/created group");
     }
 
     DISCORD_LOG(LS_INFO) << "Processing welcome: " << ::mlspp::bytes_ns::bytes(welcome);
@@ -530,17 +537,18 @@ RosterMap Session::ReplaceState(std::unique_ptr<::mlspp::State>&& state)
     return changeMap;
 }
 
-bool Session::HasCryptographicStateForWelcome() const noexcept
-{
-    return joinKeyPackage_ && joinInitPrivateKey_ && selfSigPrivateKey_ && selfHPKEPrivateKey_;
-}
-
 bool Session::VerifyWelcomeState(::mlspp::State const& state,
                                  std::set<std::string> const& recognizedUserIDs) const
 {
     if (!externalSender_) {
         DISCORD_LOG(LS_ERROR) << "Cannot verify MLS welcome without an external sender";
         TRACK_MLS_ERROR("Missing external sender when processing Welcome");
+        return false;
+    }
+
+    if (state.group_id() != groupId_) {
+        DISCORD_LOG(LS_ERROR) << "Unexpected group ID in MLS welcome";
+        TRACK_MLS_ERROR("Unexpected group ID in Welcome");
         return false;
     }
 
@@ -564,16 +572,11 @@ bool Session::VerifyWelcomeState(::mlspp::State const& state,
         return false;
     }
 
-    // TODO: Until we leverage revocation in the protocol
-    // if we re-enable this change we will refuse welcome messages
-    // because someone was previously supposed to be added but disconnected
-    // before all in-flight proposals were handled.
-
     for (const auto& leaf : state.roster()) {
         if (!IsRecognizedUserID(leaf.credential, recognizedUserIDs)) {
             DISCORD_LOG(LS_ERROR) << "MLS welcome lists unrecognized user ID";
-            // TRACK_MLS_ERROR("Welcome message lists unrecognized user ID");
-            // return false;
+            TRACK_MLS_ERROR("Welcome message lists unrecognized user ID");
+            return false;
         }
     }
 
@@ -585,22 +588,33 @@ void Session::InitLeafNode(std::string const& selfUserId,
 try {
     auto ciphersuite = CiphersuiteForProtocolVersion(protocolVersion_);
 
-    if (!transientKey) {
-        if (!signingKeyId_.empty()) {
-            transientKey = GetPersistedKeyPair(keyPairContext_, signingKeyId_, protocolVersion_);
-            if (!transientKey) {
-                DISCORD_LOG(LS_ERROR) << "Did not receive MLS signature private key from "
-                                         "GetPersistedKeyPair; aborting";
-                return;
+    // Init can run more than once per session; never reuse a key resolved by an earlier Init.
+    selfSigPrivateKey_.reset();
+
+    if (!transientKey && !signingKeyId_.empty()) {
+        try {
+            selfSigPrivateKey_ =
+              GetPersistedKeyPair(keyPairContext_, signingKeyId_, protocolVersion_);
+            if (!selfSigPrivateKey_) {
+                throw std::runtime_error("Generic failure in GetPersistedKeyPair");
             }
         }
-        else {
-            transientKey = std::make_shared<::mlspp::SignaturePrivateKey>(
-              ::mlspp::SignaturePrivateKey::generate(ciphersuite));
+        catch (std::exception& e) {
+            DISCORD_LOG(LS_INFO)
+              << "Failed to retrieve persisted key pair; falling back on transient: " << e.what();
+            if (onMLSFailureCallback_) {
+                onMLSFailureCallback_("GetPersistedKeyPair", e.what());
+            }
         }
     }
 
-    selfSigPrivateKey_ = transientKey;
+    if (!selfSigPrivateKey_) {
+        if (!transientKey) {
+            transientKey = std::make_shared<::mlspp::SignaturePrivateKey>(
+              ::mlspp::SignaturePrivateKey::generate(ciphersuite));
+        }
+        selfSigPrivateKey_ = transientKey;
+    }
 
     auto selfCredential = CreateUserCredential(selfUserId, protocolVersion_);
 
@@ -627,8 +641,7 @@ catch (const std::exception& e) {
 void Session::ResetJoinKeyPackage() noexcept
 try {
     if (!selfLeafNode_) {
-        DISCORD_LOG(LS_ERROR) << "Cannot initialize join key package without a leaf node";
-        return;
+        throw std::runtime_error("Missing leaf node");
     }
 
     auto ciphersuite = CiphersuiteForProtocolVersion(protocolVersion_);

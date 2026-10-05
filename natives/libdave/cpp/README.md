@@ -43,3 +43,17 @@ make shared
 ### SSL
 
 By default the library builds with OpenSSL 3, however you can modify `VCPKG_MANIFEST_DIR` in the [Makefile](Makefile) to build with OpenSSL 1.1 or BoringSSL instead.
+
+### Formatting
+
+All C/C++ under `afl-driver`, `includes`, `src`, and `test` is formatted with
+clang-format 22.1.8 per [.clang-format](.clang-format) — the version is pinned
+because different clang-format releases produce different output for the same
+style file. CI enforces it (`make format-check`). To format locally:
+```
+make format CLANG_FORMAT_BIN=path/to/clang-format-22
+```
+Or install the pre-commit hook from the repository root:
+```
+pipx install pre-commit && pre-commit install
+```

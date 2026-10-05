@@ -1,5 +1,6 @@
 #include "cryptor_manager.h"
 
+#include <algorithm>
 #include <limits>
 
 #include <dave/logger.h>
@@ -38,12 +39,9 @@ CryptorManager::CryptorManager(const IClock& clock, std::unique_ptr<IKeyRatchet>
 
 bool CryptorManager::CanProcessNonce(KeyGeneration generation, TruncatedSyncNonce nonce) const
 {
-    if (!newestProcessedNonce_) {
-        return true;
-    }
-
+    auto expectedNonce = newestProcessedNonce_ ? *newestProcessedNonce_ + 1 : 0;
     auto bigNonce = ComputeWrappedBigNonce(generation, nonce);
-    return bigNonce > *newestProcessedNonce_ ||
+    return bigNonce >= expectedNonce ||
       std::find(missingNonces_.rbegin(), missingNonces_.rend(), bigNonce) != missingNonces_.rend();
 }
 
@@ -88,15 +86,13 @@ ICryptor* CryptorManager::GetCryptor(KeyGeneration generation)
 
 void CryptorManager::ReportCryptorSuccess(KeyGeneration generation, TruncatedSyncNonce nonce)
 {
+    auto expectedNonce = newestProcessedNonce_ ? *newestProcessedNonce_ + 1 : 0;
     auto bigNonce = ComputeWrappedBigNonce(generation, nonce);
 
     // Add any missing nonces to the queue
-    if (!newestProcessedNonce_) {
-        newestProcessedNonce_ = bigNonce;
-    }
-    else if (bigNonce > *newestProcessedNonce_) {
+    if (bigNonce >= expectedNonce) {
         auto missingNonces =
-          std::min(bigNonce - *newestProcessedNonce_ - 1, static_cast<uint64_t>(kMaxMissingNonces));
+          std::min(bigNonce - expectedNonce, static_cast<uint64_t>(kMaxMissingNonces));
 
         while (!missingNonces_.empty() &&
                missingNonces_.size() + missingNonces > kMaxMissingNonces) {
@@ -111,9 +107,10 @@ void CryptorManager::ReportCryptorSuccess(KeyGeneration generation, TruncatedSyn
         newestProcessedNonce_ = bigNonce;
     }
     else {
-        auto it = std::find(missingNonces_.begin(), missingNonces_.end(), bigNonce);
-        if (it != missingNonces_.end()) {
-            missingNonces_.erase(it);
+        // Reverse search since the nonce is most likely to be at the back of the queue
+        auto it = std::find(missingNonces_.rbegin(), missingNonces_.rend(), bigNonce);
+        if (it != missingNonces_.rend()) {
+            missingNonces_.erase(it.base() - 1);
         }
     }
 

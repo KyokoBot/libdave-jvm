@@ -53,8 +53,25 @@ runs:
       if: ${{ runner.os == 'macOS' }}
       shell: bash
       run: |
-        echo "CC=$(brew --prefix llvm@18)/bin/clang" >> $GITHUB_ENV
-        echo "CXX=$(brew --prefix llvm@18)/bin/clang++" >> $GITHUB_ENV
+        # macOS 26 needs LLVM >= 22: the ASan runtime in earlier versions
+        # deadlocks before main() there (llvm/llvm-project#200447).
+        # Older images (macos-15-intel) keep llvm@18, which they ship preinstalled.
+        if [[ "$(sw_vers -productVersion | cut -d. -f1)" -ge 26 ]]; then
+          llvm=llvm@22
+        else
+          llvm=llvm@18
+        fi
+        prefix="$(brew --prefix $llvm)"
+        if [[ ! -x "$prefix/bin/clang" ]]; then
+          brew install $llvm
+        fi
+        if [[ ! -x "$prefix/bin/clang" ]]; then
+          echo "$llvm is not available on this runner" >&2
+          exit 1
+        fi
+        echo "Using $llvm at $prefix"
+        echo "CC=$prefix/bin/clang" >> $GITHUB_ENV
+        echo "CXX=$prefix/bin/clang++" >> $GITHUB_ENV
 
     - name: Update dependencies (act)
       if: ${{ runner.os == 'Linux' && env.ACT }}

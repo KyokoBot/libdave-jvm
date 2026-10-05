@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <deque>
 #include <memory>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include "common.h"
 #include "cryptor.h"
@@ -23,8 +25,10 @@ public:
 
     CryptorManager(const IClock& clock, std::unique_ptr<IKeyRatchet> keyRatchet);
 
-    void UpdateExpiry(TimePoint expiry) { ratchetExpiry_ = expiry; }
+    void UpdateExpiry(TimePoint expiry) { ratchetExpiry_ = std::min(ratchetExpiry_, expiry); }
     bool IsExpired() const { return clock_.Now() > ratchetExpiry_; }
+
+    std::vector<uint8_t> GetDomainIdentity() const { return keyRatchet_->GetDomainIdentity(); }
 
     bool CanProcessNonce(KeyGeneration generation, TruncatedSyncNonce nonce) const;
     KeyGeneration ComputeWrappedGeneration(KeyGeneration generation) const;

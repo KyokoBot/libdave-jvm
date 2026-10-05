@@ -9,6 +9,7 @@
 #endif
 
 #include <dave/dave_interfaces.h>
+#include <dave/persisted_key_pair.h>
 #include <dave/version.h>
 
 namespace mlspp {
@@ -22,15 +23,6 @@ namespace mls {
 std::shared_ptr<::mlspp::SignaturePrivateKey> GetPersistedKeyPair(KeyPairContextType ctx,
                                                                   const std::string& sessionID,
                                                                   ProtocolVersion version);
-
-struct KeyAndSelfSignature {
-    std::vector<uint8_t> key;
-    std::vector<uint8_t> signature;
-};
-
-KeyAndSelfSignature GetPersistedPublicKey(KeyPairContextType ctx,
-                                          const std::string& sessionID,
-                                          SignatureVersion version);
 
 bool DeletePersistedKeyPair(KeyPairContextType ctx,
                             const std::string& sessionID,

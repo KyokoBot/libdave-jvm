@@ -87,8 +87,6 @@ private:
 
     void CreatePendingGroup() noexcept;
 
-    bool HasCryptographicStateForWelcome() const noexcept;
-
     bool IsRecognizedUserID(const ::mlspp::Credential& cred,
                             std::set<std::string> const& recognizedUserIDs) const;
     bool ValidateProposalMessage(::mlspp::AuthenticatedContent const& message,
@@ -96,8 +94,6 @@ private:
                                  std::set<std::string> const& recognizedUserIDs) const;
     bool VerifyWelcomeState(::mlspp::State const& state,
                             std::set<std::string> const& recognizedUserIDs) const;
-
-    bool CanProcessCommit(const ::mlspp::MLSMessage& commit) noexcept;
 
     RosterMap ReplaceState(std::unique_ptr<::mlspp::State>&& state);
 

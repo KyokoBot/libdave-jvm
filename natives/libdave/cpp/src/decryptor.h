@@ -26,6 +26,13 @@ class Decryptor final : public IDecryptor {
 public:
     using Duration = std::chrono::seconds;
 
+    Decryptor() = default;
+    // The injected clock must outlive the decryptor
+    explicit Decryptor(const IClock& clock)
+      : clock_(clock)
+    {
+    }
+
     virtual ~Decryptor() noexcept = default;
 
     virtual void TransitionToKeyRatchet(
@@ -59,7 +66,8 @@ private:
     std::unique_ptr<InboundFrameProcessor> GetOrCreateFrameProcessor();
     void ReturnFrameProcessor(std::unique_ptr<InboundFrameProcessor> frameProcessor);
 
-    Clock clock_;
+    Clock defaultClock_;
+    const IClock& clock_{defaultClock_};
     std::deque<CryptorManager> cryptorManagers_;
 
     std::mutex frameProcessorsMutex_;

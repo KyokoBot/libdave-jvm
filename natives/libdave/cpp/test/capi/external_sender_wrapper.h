@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-DECLARE_OPAQUE_HANDLE(DAVEExternalSenderHandle);
+DAVE_DECLARE_OPAQUE_HANDLE(DAVEExternalSenderHandle);
 
 DAVE_EXPORT DAVEExternalSenderHandle daveExternalSenderCreate(uint64_t groupId);
 DAVE_EXPORT void daveExternalSenderDestroy(DAVEExternalSenderHandle externalSender);

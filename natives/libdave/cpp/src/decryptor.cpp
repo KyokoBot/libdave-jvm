@@ -27,6 +27,23 @@ void Decryptor::TransitionToKeyRatchet(std::unique_ptr<IKeyRatchet> keyRatchet,
     DISCORD_LOG(LS_INFO) << "Transitioning to new key ratchet: " << keyRatchet.get()
                          << ", expiry: " << transitionExpiry.count();
 
+    // Remove expired cryptor managers first so a re-install of an expired key
+    // domain is treated as a fresh install
+    CleanupExpiredCryptorManagers();
+
+    // Ignore a ratchet for a key domain that already has a live cryptor manager:
+    // a sibling manager would give already-processed frames a fresh replay window.
+    // A duplicate is not a real transition, so it must not extend expiries either.
+    if (keyRatchet) {
+        auto domainIdentity = keyRatchet->GetDomainIdentity();
+        for (const auto& cryptorManager : cryptorManagers_) {
+            if (cryptorManager.GetDomainIdentity() == domainIdentity) {
+                DISCORD_LOG(LS_INFO) << "Ignoring key ratchet for already installed key domain";
+                return;
+            }
+        }
+    }
+
     // Update the expiry time for all existing cryptor managers
     UpdateCryptorManagerExpiry(transitionExpiry);
 

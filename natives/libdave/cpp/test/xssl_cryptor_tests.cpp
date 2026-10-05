@@ -21,7 +21,9 @@ using CryptorVariant = BoringSSLCryptor;
 using CryptorVariant = OpenSSLCryptor;
 #endif
 
-TEST_F(DaveTests, XSSLEncryptDecrypt)
+class XSSLCryptorTests : public DaveTests {};
+
+TEST_F(XSSLCryptorTests, XSSLEncryptDecrypt)
 {
     constexpr size_t PLAINTEXT_SIZE = 1024;
     auto plaintextBufferIn = std::vector<uint8_t>(PLAINTEXT_SIZE, 0);
@@ -57,7 +59,7 @@ TEST_F(DaveTests, XSSLEncryptDecrypt)
     EXPECT_TRUE(memcmp(plaintextBufferIn.data(), plaintextBufferOut.data(), PLAINTEXT_SIZE) == 0);
 }
 
-TEST_F(DaveTests, XSSLAdditionalDataAuth)
+TEST_F(XSSLCryptorTests, XSSLAdditionalDataAuth)
 {
     constexpr size_t PLAINTEXT_SIZE = 1024;
     auto plaintextBufferIn = std::vector<uint8_t>(PLAINTEXT_SIZE, 0);
@@ -90,7 +92,7 @@ TEST_F(DaveTests, XSSLAdditionalDataAuth)
     EXPECT_FALSE(cryptor.Decrypt(plaintextOut, ciphertextIn, tagIn, nonce, additionalData));
 }
 
-TEST_F(DaveTests, XSSLKeyDiff)
+TEST_F(XSSLCryptorTests, XSSLKeyDiff)
 {
     constexpr size_t PLAINTEXT_SIZE = 1024;
     auto plaintextBuffer1 = std::vector<uint8_t>(PLAINTEXT_SIZE, 0);
@@ -124,7 +126,7 @@ TEST_F(DaveTests, XSSLKeyDiff)
     EXPECT_FALSE(memcmp(ciphertextBuffer1.data(), ciphertextBuffer2.data(), PLAINTEXT_SIZE) == 0);
 }
 
-TEST_F(DaveTests, XSSLNonceDiff)
+TEST_F(XSSLCryptorTests, XSSLNonceDiff)
 {
     constexpr size_t PLAINTEXT_SIZE = 1024;
     auto plaintextBuffer1 = std::vector<uint8_t>(PLAINTEXT_SIZE, 0);

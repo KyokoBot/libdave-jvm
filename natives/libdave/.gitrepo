@@ -6,7 +6,7 @@
 [subrepo]
 	remote = https://github.com/discord/libdave
 	branch = main
-	commit = 52cd56dc550f447fb354b3a06c9e2d2e2a4309c6
+	commit = 8de72b1f8a2ac3c5a5270755bb8091a62e3c6169
 	parent = 606ee9a45a0466ea4d6360b500008d7342583e72
 	method = merge
 	cmdver = 0.4.5

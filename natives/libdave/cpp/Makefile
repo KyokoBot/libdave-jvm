@@ -16,7 +16,10 @@ WASM_MANIFEST=vcpkg-alts/wasm
 TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
 EMSCRIPTEN_TOOLCHAIN_FILE=${EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
 
-CLANG_FORMAT=clang-format -i -style=file:.clang-format
+CLANG_FORMAT_BIN ?= clang-format
+CLANG_FORMAT=${CLANG_FORMAT_BIN} -i -style=file:.clang-format
+CLANG_FORMAT_CHECK=${CLANG_FORMAT_BIN} --dry-run -Werror -style=file:.clang-format
+FORMAT_PATHS=afl-driver includes src test
 
 DEFAULT_BUILD_TYPE=Debug
 BUILD_TYPE ?= $(DEFAULT_BUILD_TYPE)
@@ -158,5 +161,7 @@ else
 endif
 
 format:
-	find src -iname "*.h" -or -iname "*.cpp" -or -iname "*.c" | xargs ${CLANG_FORMAT}
-	find test -iname "*.h" -or -iname "*.cpp" -or -iname "*.c" | xargs ${CLANG_FORMAT}
+	find ${FORMAT_PATHS} -iname "*.h" -or -iname "*.cpp" -or -iname "*.c" | xargs ${CLANG_FORMAT}
+
+format-check:
+	find ${FORMAT_PATHS} -iname "*.h" -or -iname "*.cpp" -or -iname "*.c" | xargs ${CLANG_FORMAT_CHECK}

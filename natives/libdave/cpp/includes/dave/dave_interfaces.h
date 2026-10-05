@@ -1,18 +1,24 @@
 #pragma once
 
+#include <array>
+#include <chrono>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
-#include <map>
 #include <variant>
-#include <chrono>
 #include <vector>
 
 #include <dave/array_view.h>
 #include <dave/dave.h>
 #include <dave/version.h>
+
+#if defined(__ANDROID__)
+// KeyPairContextType below is JNIEnv* on Android
+#include <jni.h>
+#endif
 
 namespace mlspp {
 namespace bytes_ns {
@@ -21,7 +27,6 @@ struct bytes;
 
 struct SignaturePrivateKey;
 } // namespace mlspp
-
 
 namespace discord {
 namespace dave {
@@ -57,13 +62,23 @@ using RosterMap = std::map<uint64_t, std::vector<uint8_t>>;
 // Return type for functions producing RosterMap or hard or soft failures
 using RosterVariant = std::variant<failed_t, ignored_t, RosterMap>;
 
+// Identifies a protocol transition as coordinated by the signaling layer
+using TransitionId = uint16_t;
+
 constexpr auto kDefaultTransitionDuration = std::chrono::seconds(10);
+constexpr auto kInitTransitionId = 0;
+constexpr auto kDisabledVersion = 0;
+
+// The canonical Opus silence frame; encryptors may substitute it when no key
+// ratchet is active yet, and decryptors pass it through untouched
+constexpr std::array<uint8_t, 3> kOpusSilencePacket = {0xF8, 0xFF, 0xFE};
 
 class IKeyRatchet {
 public:
     virtual ~IKeyRatchet() noexcept = default;
     virtual EncryptionKey GetKey(KeyGeneration generation) noexcept = 0;
     virtual void DeleteKey(KeyGeneration generation) noexcept = 0;
+    virtual std::vector<uint8_t> GetDomainIdentity() const noexcept = 0;
 };
 
 namespace mls {
@@ -114,8 +129,8 @@ public:
 
 using MLSFailureCallback = std::function<void(std::string const&, std::string const&)>;
 std::unique_ptr<ISession> CreateSession(KeyPairContextType context,
-                                                    std::string authSessionId,
-                                                    MLSFailureCallback callback) noexcept;
+                                        std::string authSessionId,
+                                        MLSFailureCallback callback) noexcept;
 
 } // namespace mls
 

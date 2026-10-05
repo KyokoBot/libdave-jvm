@@ -15,9 +15,9 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 /// KOE PATCH BEGIN
 #ifndef DAVE_BUILD_SHARED_LIBS
@@ -35,24 +35,24 @@
 #endif // DAVE_BUILD_SHARED_LIBS
 /// KOE PATCH END
 
-#define DECLARE_OPAQUE_HANDLE(x) typedef struct x##_s* x
+#define DAVE_DECLARE_OPAQUE_HANDLE(x) typedef struct x##_s* x
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /** @brief DAVE session handle for managing group encryption state */
-DECLARE_OPAQUE_HANDLE(DAVESessionHandle);
+DAVE_DECLARE_OPAQUE_HANDLE(DAVESessionHandle);
 /** @brief Result handle from processing an MLS commit message */
-DECLARE_OPAQUE_HANDLE(DAVECommitResultHandle);
+DAVE_DECLARE_OPAQUE_HANDLE(DAVECommitResultHandle);
 /** @brief Result handle from processing an MLS welcome message */
-DECLARE_OPAQUE_HANDLE(DAVEWelcomeResultHandle);
+DAVE_DECLARE_OPAQUE_HANDLE(DAVEWelcomeResultHandle);
 /** @brief Key ratchet handle for deriving encryption keys */
-DECLARE_OPAQUE_HANDLE(DAVEKeyRatchetHandle);
+DAVE_DECLARE_OPAQUE_HANDLE(DAVEKeyRatchetHandle);
 /** @brief Media frame encryptor handle */
-DECLARE_OPAQUE_HANDLE(DAVEEncryptorHandle);
+DAVE_DECLARE_OPAQUE_HANDLE(DAVEEncryptorHandle);
 /** @brief Media frame decryptor handle */
-DECLARE_OPAQUE_HANDLE(DAVEDecryptorHandle);
+DAVE_DECLARE_OPAQUE_HANDLE(DAVEDecryptorHandle);
 
 /**
  * @brief Supported media codecs for encryption
@@ -79,22 +79,23 @@ typedef enum {
  * @brief Result codes returned by encryption operations
  */
 typedef enum {
-    DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS = 0,            /**< Encryption succeeded */
-    DAVE_ENCRYPTOR_RESULT_CODE_ENCRYPTION_FAILURE = 1, /**< Encryption failed */
-    DAVE_ENCRYPTOR_RESULT_CODE_MISSING_KEY_RATCHET = 2,/**< No key ratchet available */
-    DAVE_ENCRYPTOR_RESULT_CODE_MISSING_CRYPTOR = 3,    /**< Missing cryptographic context */
-    DAVE_ENCRYPTOR_RESULT_CODE_TOO_MANY_ATTEMPTS = 4,  /**< Too many attempts to encrypt the frame failed */
+    DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS = 0,             /**< Encryption succeeded */
+    DAVE_ENCRYPTOR_RESULT_CODE_ENCRYPTION_FAILURE = 1,  /**< Encryption failed */
+    DAVE_ENCRYPTOR_RESULT_CODE_MISSING_KEY_RATCHET = 2, /**< No key ratchet available */
+    DAVE_ENCRYPTOR_RESULT_CODE_MISSING_CRYPTOR = 3,     /**< Missing cryptographic context */
+    DAVE_ENCRYPTOR_RESULT_CODE_TOO_MANY_ATTEMPTS =
+      4, /**< Too many attempts to encrypt the frame failed */
 } DAVEEncryptorResultCode;
 
 /**
  * @brief Result codes returned by decryption operations
  */
 typedef enum {
-    DAVE_DECRYPTOR_RESULT_CODE_SUCCESS = 0,            /**< Decryption succeeded */
-    DAVE_DECRYPTOR_RESULT_CODE_DECRYPTION_FAILURE = 1, /**< Decryption failed */
-    DAVE_DECRYPTOR_RESULT_CODE_MISSING_KEY_RATCHET = 2,/**< No key ratchet available */
-    DAVE_DECRYPTOR_RESULT_CODE_INVALID_NONCE = 3,      /**< Invalid nonce in encrypted frame */
-    DAVE_DECRYPTOR_RESULT_CODE_MISSING_CRYPTOR = 4     /**< Missing cryptographic context */
+    DAVE_DECRYPTOR_RESULT_CODE_SUCCESS = 0,             /**< Decryption succeeded */
+    DAVE_DECRYPTOR_RESULT_CODE_DECRYPTION_FAILURE = 1,  /**< Decryption failed */
+    DAVE_DECRYPTOR_RESULT_CODE_MISSING_KEY_RATCHET = 2, /**< No key ratchet available */
+    DAVE_DECRYPTOR_RESULT_CODE_INVALID_NONCE = 3,       /**< Invalid nonce in encrypted frame */
+    DAVE_DECRYPTOR_RESULT_CODE_MISSING_CRYPTOR = 4      /**< Missing cryptographic context */
 } DAVEDecryptorResultCode;
 
 /**
@@ -122,7 +123,9 @@ typedef void (*DAVEMLSFailureCallback)(const char* source, const char* reason, v
  * @param length Length of fingerprint in bytes
  * @param userData User-provided context pointer
  */
-typedef void (*DAVEPairwiseFingerprintCallback)(const uint8_t* fingerprint, size_t length, void* userData);
+typedef void (*DAVEPairwiseFingerprintCallback)(const uint8_t* fingerprint,
+                                                size_t length,
+                                                void* userData);
 
 /**
  * @brief Callback invoked when the encryptor's protocol version changes
@@ -133,7 +136,8 @@ typedef void (*DAVEEncryptorProtocolVersionChangedCallback)(void* userData);
 /**
  * @brief Custom log sink callback for receiving library log messages
  * @param severity Log severity level
- * @param file Source file name where log originated (freed by the library after the callback returns)
+ * @param file Source file name where log originated (freed by the library after the callback
+ * returns)
  * @param line Line number in source file
  * @param message Log message text (freed by the library after the callback returns)
  */
@@ -146,28 +150,27 @@ typedef void (*DAVELogSinkCallback)(DAVELoggingSeverity severity,
  * @brief Statistics for encryption operations
  */
 typedef struct DAVEEncryptorStats {
-    uint64_t passthroughCount;      /**< Frames passed through without encryption */
-    uint64_t encryptSuccessCount;   /**< Successful encryption count */
-    uint64_t encryptFailureCount;   /**< Failed encryption count */
-    uint64_t encryptDuration;       /**< Total encryption duration */
-    uint64_t encryptAttempts;       /**< Total encryption attempts */
-    uint64_t encryptMaxAttempts;    /**< Maximum retry attempts for a single frame */
-    uint64_t encryptMissingKeyCount;/**< Encryptions skipped due to missing key */
+    uint64_t passthroughCount;       /**< Frames passed through without encryption */
+    uint64_t encryptSuccessCount;    /**< Successful encryption count */
+    uint64_t encryptFailureCount;    /**< Failed encryption count */
+    uint64_t encryptDuration;        /**< Total encryption duration */
+    uint64_t encryptAttempts;        /**< Total encryption attempts */
+    uint64_t encryptMaxAttempts;     /**< Maximum retry attempts for a single frame */
+    uint64_t encryptMissingKeyCount; /**< Encryptions skipped due to missing key */
 } DAVEEncryptorStats;
 
 /**
  * @brief Statistics for decryption operations
  */
 typedef struct DAVEDecryptorStats {
-    uint64_t passthroughCount;        /**< Frames passed through without decryption */
-    uint64_t decryptSuccessCount;     /**< Successful decryption count */
-    uint64_t decryptFailureCount;     /**< Failed decryption count */
-    uint64_t decryptDuration;         /**< Total decryption duration */
-    uint64_t decryptAttempts;         /**< Total decryption attempts */
-    uint64_t decryptMissingKeyCount;  /**< Decryptions failed due to missing key */
-    uint64_t decryptInvalidNonceCount;/**< Decryptions failed due to invalid nonce */
+    uint64_t passthroughCount;         /**< Frames passed through without decryption */
+    uint64_t decryptSuccessCount;      /**< Successful decryption count */
+    uint64_t decryptFailureCount;      /**< Failed decryption count */
+    uint64_t decryptDuration;          /**< Total decryption duration */
+    uint64_t decryptAttempts;          /**< Total decryption attempts */
+    uint64_t decryptMissingKeyCount;   /**< Decryptions failed due to missing key */
+    uint64_t decryptInvalidNonceCount; /**< Decryptions failed due to invalid nonce */
 } DAVEDecryptorStats;
-
 
 /*******************************************************************************
  * Version
@@ -281,7 +284,8 @@ DAVE_EXPORT void daveSessionSetExternalSender(DAVESessionHandle session,
  * @param length Length of proposals
  * @param recognizedUserIds Array of recognized user ID strings
  * @param recognizedUserIdsLength Number of recognized user IDs
- * @param[out] commitWelcomeBytes Output buffer to commit/welcome message bytes (caller must free with daveFree)
+ * @param[out] commitWelcomeBytes Output buffer to commit/welcome message bytes (caller must free
+ * with daveFree)
  * @param[out] commitWelcomeBytesLength Output length of the commit/welcome message
  */
 DAVE_EXPORT void daveSessionProcessProposals(DAVESessionHandle session,
@@ -351,7 +355,6 @@ DAVE_EXPORT void daveSessionGetPairwiseFingerprint(DAVESessionHandle session,
                                                    DAVEPairwiseFingerprintCallback callback,
                                                    void* userData);
 
-
 /*******************************************************************************
  * Key Ratchet
  ******************************************************************************/
@@ -383,7 +386,8 @@ DAVE_EXPORT bool daveCommitResultIsIgnored(DAVECommitResultHandle commitResultHa
 /**
  * @brief Gets the list of member IDs in the roster after the commit
  * @param commitResultHandle Commit result handle
- * @param[out] rosterIds Output buffer to array of roster member IDs (caller must free with daveFree)
+ * @param[out] rosterIds Output buffer to array of roster member IDs (caller must free with
+ * daveFree)
  * @param[out] rosterIdsLength Output length of the roster member IDs array
  */
 DAVE_EXPORT void daveCommitResultGetRosterMemberIds(DAVECommitResultHandle commitResultHandle,
@@ -415,7 +419,8 @@ DAVE_EXPORT void daveCommitResultDestroy(DAVECommitResultHandle commitResultHand
 /**
  * @brief Gets the list of member IDs in the roster from the welcome message
  * @param welcomeResultHandle Welcome result handle
- * @param[out] rosterIds Output buffer to array of roster member IDs (caller must free with daveFree)
+ * @param[out] rosterIds Output buffer to array of roster member IDs (caller must free with
+ * daveFree)
  * @param[out] rosterIdsLength Output length of the roster member IDs array
  */
 DAVE_EXPORT void daveWelcomeResultGetRosterMemberIds(DAVEWelcomeResultHandle welcomeResultHandle,
@@ -429,10 +434,11 @@ DAVE_EXPORT void daveWelcomeResultGetRosterMemberIds(DAVEWelcomeResultHandle wel
  * @param[out] signature Output buffer to signature bytes (caller must free with daveFree)
  * @param[out] signatureLength Output length of the signature
  */
-DAVE_EXPORT void daveWelcomeResultGetRosterMemberSignature(DAVEWelcomeResultHandle welcomeResultHandle,
-                                                           uint64_t rosterId,
-                                                           uint8_t** signature,
-                                                           size_t* signatureLength);
+DAVE_EXPORT void daveWelcomeResultGetRosterMemberSignature(
+  DAVEWelcomeResultHandle welcomeResultHandle,
+  uint64_t rosterId,
+  uint8_t** signature,
+  size_t* signatureLength);
 
 /**
  * @brief Destroys a welcome result and frees associated resources
@@ -457,7 +463,7 @@ DAVE_EXPORT DAVEEncryptorHandle daveEncryptorCreate(void);
 DAVE_EXPORT void daveEncryptorDestroy(DAVEEncryptorHandle encryptor);
 
 /**
- * @brief Sets the key ratchet for encryption 
+ * @brief Sets the key ratchet for encryption
  * @param encryptor Encryptor handle
  * @param keyRatchet Key ratchet to use for encryption (does *not* take ownership)
  */
@@ -542,9 +548,9 @@ DAVE_EXPORT DAVEEncryptorResultCode daveEncryptorEncrypt(DAVEEncryptorHandle enc
  * @param userData User data passed to callback
  */
 DAVE_EXPORT void daveEncryptorSetProtocolVersionChangedCallback(
-    DAVEEncryptorHandle encryptor,
-    DAVEEncryptorProtocolVersionChangedCallback callback,
-    void* userData);
+  DAVEEncryptorHandle encryptor,
+  DAVEEncryptorProtocolVersionChangedCallback callback,
+  void* userData);
 
 /**
  * @brief Gets encryption statistics
@@ -555,9 +561,6 @@ DAVE_EXPORT void daveEncryptorSetProtocolVersionChangedCallback(
 DAVE_EXPORT void daveEncryptorGetStats(DAVEEncryptorHandle encryptor,
                                        DAVEMediaType mediaType,
                                        DAVEEncryptorStats* stats);
-
-
-
 
 /*******************************************************************************
  * Decryptor

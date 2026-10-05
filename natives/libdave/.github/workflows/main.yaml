@@ -18,6 +18,20 @@ defaults:
     shell: bash
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned: different clang-format versions produce different output for
+      # the same style file. Keep in sync with .pre-commit-config.yaml.
+      - name: install clang-format
+        run: pipx install clang-format==22.1.8
+
+      - name: check formatting
+        run: make format-check
+
   debug-test:
     strategy:
       matrix:

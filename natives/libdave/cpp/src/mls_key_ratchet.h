@@ -15,11 +15,13 @@ public:
 
     EncryptionKey GetKey(KeyGeneration generation) noexcept override;
     void DeleteKey(KeyGeneration generation) noexcept override;
+    std::vector<uint8_t> GetDomainIdentity() const noexcept override;
 
     const ::mlspp::HashRatchet& GetHashRatchet() const noexcept { return hashRatchet_; }
 
 private:
     ::mlspp::HashRatchet hashRatchet_;
+    std::vector<uint8_t> domainIdentity_;
 };
 
 } // namespace dave

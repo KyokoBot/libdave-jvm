@@ -7,8 +7,8 @@
 #include <fuzzer/FuzzedDataProvider.h>
 
 #include "common.h"
-#include "utils/array_view.h"
 #include "decryptor.h"
+#include "utils/array_view.h"
 
 using namespace discord::dave;
 

@@ -6,6 +6,7 @@
 #include <functional>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -18,6 +19,13 @@
 
 #include "mls/parameters.h"
 
+// kSecUseDataProtectionKeychain is set unconditionally below, so macOS builds of this backend
+// require a 10.15+ deployment target; build with persistent keys disabled otherwise.
+#if !TARGET_OS_IPHONE && defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && \
+  __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
+#error The persisted-keys Apple backend requires a macOS 10.15+ deployment target
+#endif
+
 static const CFStringRef KeyServiceLabel = CFSTR("Discord Secure Frames Key");
 static const std::string KeyLabelPrefix = "Discord Secure Frames Key: ";
 static const std::string KeyTagPrefix = "discord-secure-frames-key-";
@@ -26,12 +34,17 @@ static const std::string KeyTagPrefix = "discord-secure-frames-key-";
 extern CFStringRef KEYCHAIN_ACCESS_GROUP_ID_SYMBOL;
 #endif
 
+// Expand then stringify the bare KEYCHAIN_ACCESS_GROUP_ID token; CFSTR needs a string literal.
+#define DAVE_STRINGIFY_LITERAL(x) #x
+#define DAVE_STRINGIFY(x) DAVE_STRINGIFY_LITERAL(x)
+
 static void AddAccessGroup([[maybe_unused]] CFMutableDictionaryRef dict)
 {
 #ifdef KEYCHAIN_ACCESS_GROUP_ID_SYMBOL
     CFDictionaryAddValue(dict, kSecAttrAccessGroup, KEYCHAIN_ACCESS_GROUP_ID_SYMBOL);
 #elif defined(KEYCHAIN_ACCESS_GROUP_ID)
-    CFDictionaryAddValue(dict, kSecAttrAccessGroup, CFSTR(#KEYCHAIN_ACCESS_GROUP_ID));
+    CFDictionaryAddValue(
+      dict, kSecAttrAccessGroup, CFSTR(DAVE_STRINGIFY(KEYCHAIN_ACCESS_GROUP_ID)));
 #endif
 }
 
@@ -206,17 +219,13 @@ std::shared_ptr<::mlspp::SignaturePrivateKey> GetNativePersistedKeyPair(
 
             CFIndex len = CFDataGetLength(data);
             if (len < 0 || (size_t)len < HeaderSize + ValueCount * byteLen) {
-                DISCORD_LOG(LS_ERROR)
-                  << "Exported key blob too small in GetPersistedKeyPair/convertKey: " << len;
-                return ret;
+                throw std::length_error("Exported key blob too small: " + std::to_string(len));
             }
 
             const uint8_t* ptr = CFDataGetBytePtr(data);
             if (ptr[0] != HeaderByte) {
-                DISCORD_LOG(LS_ERROR)
-                  << "Exported key blob has unexpected format in GetPersistedKeyPair/convertKey: "
-                  << ptr[0];
-                return ret;
+                throw std::length_error("Exported key blob has unexpected format: " +
+                                        std::to_string(ptr[0]));
             }
 
             // Skip header, X, and Y, and extract K.
@@ -250,100 +259,81 @@ std::shared_ptr<::mlspp::SignaturePrivateKey> GetNativePersistedKeyPair(
     ScopedCFTypeRef<CFErrorRef> cfError;
     ScopedCFTypeRef<SecKeyRef> key;
 
-    // If we get errSecMissingEntitlement, try again with the file-based keychain
-    constexpr int AttemptCount = 2;
-    for (int attempt = 0; attempt < AttemptCount && !key; attempt++) {
-        cfError.release();
+#if !TARGET_OS_IPHONE
+    CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+#endif
 
-        CFBooleanRef useDataProtection = attempt == 0 ? kCFBooleanTrue : kCFBooleanFalse;
-        if (__builtin_available(macOS 10.15, *)) {
-            CFDictionarySetValue(query, kSecUseDataProtectionKeychain, useDataProtection);
-        }
-        else if (attempt == 1) {
-            return nullptr;
-        }
+    OSStatus status = SecItemCopyMatching(query, key.getGenericPtr());
 
-        OSStatus status = SecItemCopyMatching(query, key.getGenericPtr());
+    if (status == errSecSuccess) {
+        ScopedCFTypeRef updateQuery = CFDictionaryCreateMutableCopy(NULL, 0, query);
+        ScopedCFTypeRef updateAttrs = CFDictionaryCreateMutable(
+          NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-        if (status == errSecSuccess) {
-            ScopedCFTypeRef updateQuery = CFDictionaryCreateMutableCopy(NULL, 0, query);
-            ScopedCFTypeRef updateAttrs = CFDictionaryCreateMutable(
-              NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionaryRemoveValue(updateQuery, kSecReturnRef);
+        CFDictionaryAddValue(
+          updateAttrs, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly);
 
-            CFDictionaryRemoveValue(updateQuery, kSecReturnRef);
-            CFDictionaryAddValue(
-              updateAttrs, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly);
+        // Best effort
+        OSStatus updateStatus = SecItemUpdate(query, updateAttrs);
+        DISCORD_LOG(LS_INFO) << "Attempted to update permissions on existing key: "
+                             << SecStatusToString(updateStatus);
+    }
 
-            // Best effort
-            OSStatus updateStatus = SecItemUpdate(query, updateAttrs);
-            DISCORD_LOG(LS_INFO) << "Attempted to update permissions on existing key: "
-                                 << SecStatusToString(updateStatus);
-        }
+    if (status == errSecItemNotFound) {
+        DISCORD_LOG(LS_INFO) << "Item not found in GetPersistedKeyPair; generating new: "
+                             << SecStatusToString(status);
 
-        if (status == errSecItemNotFound) {
-            DISCORD_LOG(LS_INFO) << "Item not found in GetPersistedKeyPair; generating new: "
-                                 << SecStatusToString(status);
+        ScopedCFTypeRef params = CFDictionaryCreateMutable(
+          NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        AddAccessGroup(params);
+        CFDictionaryAddValue(params, kSecAttrKeyType, keyType);
+        CFDictionaryAddValue(params, kSecAttrKeySizeInBits, sizeRef);
+        CFDictionaryAddValue(params, kSecAttrCanEncrypt, kCFBooleanFalse);
+        CFDictionaryAddValue(params, kSecAttrCanDecrypt, kCFBooleanFalse);
+        CFDictionaryAddValue(params, kSecAttrCanWrap, kCFBooleanFalse);
+        CFDictionaryAddValue(params, kSecAttrCanUnwrap, kCFBooleanFalse);
+        CFDictionaryAddValue(
+          params, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly);
+#if !TARGET_OS_IPHONE
+        CFDictionaryAddValue(params, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+#endif
 
-            ScopedCFTypeRef params = CFDictionaryCreateMutable(
-              NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-            AddAccessGroup(params);
-            CFDictionaryAddValue(params, kSecAttrKeyType, keyType);
-            CFDictionaryAddValue(params, kSecAttrKeySizeInBits, sizeRef);
-            CFDictionaryAddValue(params, kSecAttrCanEncrypt, kCFBooleanFalse);
-            CFDictionaryAddValue(params, kSecAttrCanDecrypt, kCFBooleanFalse);
-            CFDictionaryAddValue(params, kSecAttrCanWrap, kCFBooleanFalse);
-            CFDictionaryAddValue(params, kSecAttrCanUnwrap, kCFBooleanFalse);
-            CFDictionaryAddValue(
-              params, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly);
-            if (__builtin_available(macOS 10.15, *)) {
-                CFDictionaryAddValue(params, kSecUseDataProtectionKeychain, useDataProtection);
-            }
+        ScopedCFTypeRef privParams = CFDictionaryCreateMutable(
+          NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionaryAddValue(privParams, kSecAttrIsPermanent, kCFBooleanTrue);
+        CFDictionaryAddValue(privParams, kSecAttrLabel, labelStringRef);
+        CFDictionaryAddValue(privParams, kSecAttrApplicationTag, tagDataRef);
 
-            ScopedCFTypeRef privParams = CFDictionaryCreateMutable(
-              NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-            CFDictionaryAddValue(privParams, kSecAttrIsPermanent, kCFBooleanTrue);
-            CFDictionaryAddValue(privParams, kSecAttrLabel, labelStringRef);
-            CFDictionaryAddValue(privParams, kSecAttrApplicationTag, tagDataRef);
+        CFDictionaryAddValue(params, kSecPrivateKeyAttrs, privParams);
 
-            CFDictionaryAddValue(params, kSecPrivateKeyAttrs, privParams);
+        key = SecKeyCreateRandomKey(params, cfError.getPtr());
 
-            key = SecKeyCreateRandomKey(params, cfError.getPtr());
-
-            if (!key || cfError) {
-                DISCORD_LOG(LS_WARNING)
-                  << "Failed to create key in GetPersistedKeyPair: " << ErrorToString(cfError);
-
-                if (!cfError || CFErrorGetCode(cfError) != errSecMissingEntitlement) {
-                    return nullptr;
-                }
-
-                key.release();
-            }
-        }
-        else if (status != 0 || !key) {
+        if (!key || cfError) {
             DISCORD_LOG(LS_WARNING)
-              << "Item not found GetPersistedKeyPair: " << SecStatusToString(status);
-            if (status != errSecMissingEntitlement) {
-                return nullptr;
-            }
+              << "Failed to create key in GetPersistedKeyPair: " << ErrorToString(cfError);
+
+            throw std::runtime_error("Failed to create key: " + ErrorToString(cfError));
         }
+    }
+    else if (status != 0 || !key) {
+        DISCORD_LOG(LS_WARNING) << "Item not found GetPersistedKeyPair: "
+                                << SecStatusToString(status);
+        throw std::runtime_error("Error retrieving key: " + SecStatusToString(status));
     }
 
     if (!key) {
-        return nullptr;
+        throw std::runtime_error("Did not receive key");
     }
 
     ScopedCFTypeRef data = SecKeyCopyExternalRepresentation(key, cfError.getPtr());
     if (!data) {
-        DISCORD_LOG(LS_ERROR) << "Failed to export key in GetPersistedKeyPair: "
-                              << ErrorToString(cfError);
-        return nullptr;
+        throw std::runtime_error("Failed to export key: " + ErrorToString(cfError));
     }
 
     bytes converted = convertKey(data);
     if (converted.empty()) {
-        DISCORD_LOG(LS_ERROR) << "Failed to convert key in GetPersistedKeyPair";
-        return nullptr;
+        throw std::runtime_error("Got empty key");
     }
 
     return std::make_shared<::mlspp::SignaturePrivateKey>(
@@ -369,67 +359,52 @@ std::shared_ptr<::mlspp::SignaturePrivateKey> GetGenericPersistedKeyPair(
     CFDictionaryAddValue(query, kSecClass, kSecClassGenericPassword);
     AddAccessGroup(query);
 
-    // If we get errSecMissingEntitlement, try again with the file-based keychain
-    constexpr int AttemptCount = 2;
-    for (int attempt = 0; attempt < AttemptCount && ret.public_key.data.empty(); attempt++) {
-        if (__builtin_available(macOS 10.15, *)) {
-            CFDictionarySetValue(query,
-                                 kSecUseDataProtectionKeychain,
-                                 attempt == 0 ? kCFBooleanTrue : kCFBooleanFalse);
+#if !TARGET_OS_IPHONE
+    CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
+#endif
+
+    ScopedCFTypeRef<CFDataRef> result;
+    OSStatus status = SecItemCopyMatching(query, result.getGenericPtr());
+
+    std::string curstr;
+    if (status == 0 && result) {
+        curstr.assign((char*)CFDataGetBytePtr(result), CFDataGetLength(result));
+
+        try {
+            ret = ::mlspp::SignaturePrivateKey::from_jwk(suite, curstr);
         }
-        else if (attempt == 1) {
+        catch (std::exception& ex) {
+            DISCORD_LOG(LS_WARNING) << "Failed to parse key in GetPersistedKeyPair: " << ex.what();
             return nullptr;
         }
+    }
+    else if (status == errSecItemNotFound) {
+        DISCORD_LOG(LS_INFO) << "Did not receive item in GetPersistedKeyPair; generating new: "
+                             << SecStatusToString(status);
 
-        ScopedCFTypeRef<CFDataRef> result;
-        OSStatus status = SecItemCopyMatching(query, result.getGenericPtr());
+        ret = ::mlspp::SignaturePrivateKey::generate(suite);
 
-        std::string curstr;
-        if (status == 0 && result) {
-            curstr.assign((char*)CFDataGetBytePtr(result), CFDataGetLength(result));
+        std::string newstr = ret.to_jwk(suite);
 
-            try {
-                ret = ::mlspp::SignaturePrivateKey::from_jwk(suite, curstr);
-            }
-            catch (std::exception& ex) {
-                DISCORD_LOG(LS_WARNING)
-                  << "Failed to parse key in GetPersistedKeyPair: " << ex.what();
-                return nullptr;
-            }
+        ScopedCFTypeRef data = CFDataCreate(NULL, (const UInt8*)newstr.c_str(), newstr.length());
+
+        CFDictionaryRemoveValue(query, kSecReturnData);
+        CFDictionaryAddValue(query, kSecValueData, data);
+
+        status = SecItemAdd(query, nullptr);
+        if (status) {
+            DISCORD_LOG(LS_WARNING) << "Failed to create keychain item in GetPersistedKeyPair: "
+                                    << SecStatusToString(status);
+
+            throw std::runtime_error("Failed to create generic keychain item: " +
+                                     SecStatusToString(status));
         }
-        else if (status == errSecItemNotFound) {
-            DISCORD_LOG(LS_INFO) << "Did not receive item in GetPersistedKeyPair; generating new: "
-                                 << SecStatusToString(status);
-
-            ret = ::mlspp::SignaturePrivateKey::generate(suite);
-
-            std::string newstr = ret.to_jwk(suite);
-
-            ScopedCFTypeRef data =
-              CFDataCreate(NULL, (const UInt8*)newstr.c_str(), newstr.length());
-
-            CFDictionaryRemoveValue(query, kSecReturnData);
-            CFDictionaryAddValue(query, kSecValueData, data);
-
-            status = SecItemAdd(query, nullptr);
-            if (status) {
-                DISCORD_LOG(LS_WARNING) << "Failed to create keychain item in GetPersistedKeyPair: "
-                                        << SecStatusToString(status);
-
-                if (status != errSecMissingEntitlement) {
-                    return nullptr;
-                }
-
-                ret = ::mlspp::SignaturePrivateKey();
-            }
-        }
-        else {
-            DISCORD_LOG(LS_WARNING)
-              << "Failed to retrieve item in GetPersistedKeyPair: " << SecStatusToString(status);
-            if (status != errSecMissingEntitlement) {
-                return nullptr;
-            }
-        }
+    }
+    else {
+        DISCORD_LOG(LS_WARNING) << "Failed to retrieve item in GetPersistedKeyPair: "
+                                << SecStatusToString(status);
+        throw std::runtime_error("Failed to retrieve generic keychain item: " +
+                                 SecStatusToString(status));
     }
 
     if (!ret.public_key.data.empty()) {
@@ -443,23 +418,10 @@ std::shared_ptr<::mlspp::SignaturePrivateKey> GetGenericPersistedKeyPair(
 static bool DeleteWithQuery(CFMutableDictionaryRef query)
 {
 #if !TARGET_OS_IPHONE
-    if (__builtin_available(macOS 10.15, *)) {
-        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
-    }
+    CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
 #endif
 
-    auto ret = SecItemDelete(query);
-
-#if !TARGET_OS_IPHONE
-    if (__builtin_available(macOS 10.15, *)) {
-        if (ret == errSecMissingEntitlement) {
-            CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanFalse);
-            ret = SecItemDelete(query);
-        }
-    }
-#endif
-
-    return ret == errSecSuccess;
+    return SecItemDelete(query) == errSecSuccess;
 }
 
 bool DeleteNativePersistedKeyPair([[maybe_unused]] KeyPairContextType ctx, const std::string& id)

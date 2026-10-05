@@ -65,14 +65,19 @@ static int TestEncryptorPassthrough(void)
     DAVEEncryptorHandle encryptor = daveEncryptorCreate();
     TEST_ASSERT(encryptor != NULL, "Failed to create encryptor");
 
-    TEST_ASSERT_EQ(daveEncryptorHasKeyRatchet(encryptor), false, "Encryptor should not have a key ratchet");
-    TEST_ASSERT_EQ(daveEncryptorIsPassthroughMode(encryptor), false, "Encryptor should not be in passthrough mode");
+    TEST_ASSERT_EQ(
+      daveEncryptorHasKeyRatchet(encryptor), false, "Encryptor should not have a key ratchet");
+    TEST_ASSERT_EQ(daveEncryptorIsPassthroughMode(encryptor),
+                   false,
+                   "Encryptor should not be in passthrough mode");
 
     // Set passthrough mode
     daveEncryptorSetPassthroughMode(encryptor, true);
 
-    TEST_ASSERT_EQ(daveEncryptorIsPassthroughMode(encryptor), true, "Encryptor should be in passthrough mode");
-    TEST_ASSERT_EQ(daveEncryptorHasKeyRatchet(encryptor), false, "Encryptor should not have a key ratchet");
+    TEST_ASSERT_EQ(
+      daveEncryptorIsPassthroughMode(encryptor), true, "Encryptor should be in passthrough mode");
+    TEST_ASSERT_EQ(
+      daveEncryptorHasKeyRatchet(encryptor), false, "Encryptor should not have a key ratchet");
 
     daveEncryptorAssignSsrcToCodec(encryptor, 0, DAVE_CODEC_OPUS);
 
@@ -561,8 +566,11 @@ static int TestSession(void)
     daveEncryptorSetKeyRatchet(encryptorA, keyRatchetA);
     daveKeyRatchetDestroy(keyRatchetA);
 
-    TEST_ASSERT_EQ(daveEncryptorHasKeyRatchet(encryptorA), true, "Encryptor should have a key ratchet");
-    TEST_ASSERT_EQ(daveEncryptorIsPassthroughMode(encryptorA), false, "Encryptor should not be in passthrough mode");
+    TEST_ASSERT_EQ(
+      daveEncryptorHasKeyRatchet(encryptorA), true, "Encryptor should have a key ratchet");
+    TEST_ASSERT_EQ(daveEncryptorIsPassthroughMode(encryptorA),
+                   false,
+                   "Encryptor should not be in passthrough mode");
 
     // Setup decryptor
     printf("Setting up decryptor\n");
@@ -671,13 +679,13 @@ static int TestExceptions(void)
     DAVESessionHandle session = daveSessionCreate(NULL, NULL, TestSessionFailureCallback, NULL);
     TEST_ASSERT(session != NULL, "Failed to create session");
 
-
     PairwiseFingerprintData pairwiseFingerprintData;
     PairwiseFingerprintDataInit(&pairwiseFingerprintData);
     daveSessionGetPairwiseFingerprint(
       session, 1, "1234123412341234", &PairwiseFingerprintCallback, &pairwiseFingerprintData);
     PairwiseFingerprintDataWait(&pairwiseFingerprintData);
-    TEST_ASSERT_EQ(pairwiseFingerprintData.pairwiseFingerprintLength, 0,
+    TEST_ASSERT_EQ(pairwiseFingerprintData.pairwiseFingerprintLength,
+                   0,
                    "Expected empty fingerprint when exception is caught");
 
     PairwiseFingerprintDataDestroy(&pairwiseFingerprintData);

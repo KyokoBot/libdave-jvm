@@ -8,7 +8,7 @@
 #include <variant>
 #include <vector>
 
-#include <dave/version.h>
+#include <dave/dave_interfaces.h>
 
 namespace discord {
 namespace dave {
@@ -16,7 +16,6 @@ namespace dave {
 using UnencryptedFrameHeaderSize = uint16_t;
 using TruncatedSyncNonce = uint32_t;
 using MagicMarker = uint16_t;
-using TransitionId = uint16_t;
 using SupplementalBytesSize = uint8_t;
 
 constexpr MagicMarker kMarkerBytes = 0xFAFA;
@@ -39,13 +38,10 @@ constexpr size_t kTransformPaddingBytes = 64;
 constexpr auto kCryptorExpiry = std::chrono::seconds(10);
 
 // Behavior constants
-constexpr auto kInitTransitionId = 0;
-constexpr auto kDisabledVersion = 0;
 constexpr auto kMaxGenerationGap = 250;
 constexpr auto kMaxMissingNonces = 1000;
 constexpr auto kGenerationWrap = 1 << (8 * kRatchetGenerationBytes);
 constexpr auto kMaxFramesPerSecond = 50 + 2 * 60; // 50 audio frames + 2 * 60fps video streams
-constexpr std::array<uint8_t, 3> kOpusSilencePacket = {0xF8, 0xFF, 0xFE};
 
 // Utility routine for variant return types
 template <class T, class V>

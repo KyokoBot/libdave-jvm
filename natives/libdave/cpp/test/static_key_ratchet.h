@@ -18,9 +18,12 @@ public:
 
     EncryptionKey GetKey(KeyGeneration generation) noexcept override;
     void DeleteKey(KeyGeneration generation) noexcept override;
+    // Stable per-user domain identity, mirroring how MlsKeyRatchet identifies its key domain
+    std::vector<uint8_t> GetDomainIdentity() const noexcept override;
 
 private:
     uint64_t u64userID_;
+    std::vector<uint8_t> domainIdentity_;
 };
 
 } // namespace test

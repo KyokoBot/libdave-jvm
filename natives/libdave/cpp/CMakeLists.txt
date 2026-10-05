@@ -58,7 +58,8 @@ if (ENABLE_SANITIZERS AND NOT LIBDAVE_SANITIZERS_CONFIGURED)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZER_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SANITIZER_FLAGS}")
     # Disable STL container annotations to avoid mismatch with dependencies built without ASAN
-    add_definitions(-D_DISABLE_STRING_ANNOTATION=1 -D_DISABLE_VECTOR_ANNOTATION=1)
+    add_definitions(-D_DISABLE_STL_ANNOTATION=1) # all annotated types, MSVC 14.38+
+    add_definitions(-D_DISABLE_STRING_ANNOTATION=1 -D_DISABLE_VECTOR_ANNOTATION=1) # toolsets predating the umbrella macro
     # Find ASAN runtime DLL for copying to test directories
     get_filename_component(COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
     set(ASAN_RUNTIME_DLL "${COMPILER_DIR}/clang_rt.asan_dynamic-x86_64.dll" CACHE FILEPATH "Path to ASAN runtime DLL")

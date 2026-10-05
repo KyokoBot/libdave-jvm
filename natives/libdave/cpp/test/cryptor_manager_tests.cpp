@@ -9,6 +9,7 @@
 #include "utils/clock.h"
 
 #include "dave_test.h"
+#include "mock_clock.h"
 #include "static_key_ratchet.h"
 
 using namespace testing;
@@ -33,20 +34,16 @@ public:
     }
     MOCK_METHOD(EncryptionKey, GetKey, (KeyGeneration generation), (override, noexcept));
     MOCK_METHOD(void, DeleteKey, (KeyGeneration generation), (override, noexcept));
+
+    std::vector<uint8_t> GetDomainIdentity() const noexcept override
+    {
+        return {'m', 'o', 'c', 'k'};
+    }
 };
 
-class MockClock : public IClock {
-public:
-    TimePoint Now() const override { return now_; }
+class CryptorManagerTests : public DaveTests {};
 
-    void SetNow(TimePoint now) { now_ = now; }
-    void Advance(Duration duration) { now_ += duration; }
-
-private:
-    TimePoint now_{std::chrono::steady_clock::now()};
-};
-
-TEST_F(DaveTests, CryptorManagerCheckMaxGap)
+TEST_F(CryptorManagerTests, CryptorManagerCheckMaxGap)
 {
     auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
     EXPECT_CALL(*mockKeyRatchet, GetKey(0));
@@ -69,7 +66,7 @@ TEST_F(DaveTests, CryptorManagerCheckMaxGap)
     EXPECT_NE(cryptorManager.GetCryptor(kMaxGenerationGap + 1), nullptr);
 }
 
-TEST_F(DaveTests, CryptorManagerCheckExpiry)
+TEST_F(CryptorManagerTests, CryptorManagerCheckExpiry)
 {
     auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
     EXPECT_CALL(*mockKeyRatchet, GetKey(0));
@@ -89,7 +86,34 @@ TEST_F(DaveTests, CryptorManagerCheckExpiry)
     EXPECT_EQ(cryptorManager.GetCryptor(0), nullptr);
 }
 
-TEST_F(DaveTests, CryptorManagerDeleteOldKeys)
+TEST_F(CryptorManagerTests, CryptorManagerUpdateExpiryOnlyShortens)
+{
+    MockClock clock;
+    CryptorManager cryptorManager{clock, std::make_unique<MockKeyRatchet>()};
+
+    // A cryptor manager that has not been transitioned away from never expires
+    clock.Advance(1000000h);
+    EXPECT_FALSE(cryptorManager.IsExpired());
+
+    // The first transition away from this ratchet schedules its expiry
+    cryptorManager.UpdateExpiry(clock.Now() + kDefaultTransitionDuration);
+    clock.Advance(kDefaultTransitionDuration / 2);
+    EXPECT_FALSE(cryptorManager.IsExpired());
+
+    // A later transition must not push the already scheduled expiry further out
+    cryptorManager.UpdateExpiry(clock.Now() + kDefaultTransitionDuration);
+    clock.Advance(kDefaultTransitionDuration / 2 + 1us);
+    EXPECT_TRUE(cryptorManager.IsExpired());
+
+    // A later transition with a shorter window still shortens the expiry
+    CryptorManager shortLived{clock, std::make_unique<MockKeyRatchet>()};
+    shortLived.UpdateExpiry(clock.Now() + kDefaultTransitionDuration);
+    shortLived.UpdateExpiry(clock.Now() + 1s);
+    clock.Advance(1s + 1us);
+    EXPECT_TRUE(shortLived.IsExpired());
+}
+
+TEST_F(CryptorManagerTests, CryptorManagerDeleteOldKeys)
 {
     auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
     EXPECT_CALL(*mockKeyRatchet, GetKey(0));
@@ -112,7 +136,7 @@ TEST_F(DaveTests, CryptorManagerDeleteOldKeys)
     EXPECT_NE(cryptorManager.GetCryptor(5), nullptr);
 }
 
-TEST_F(DaveTests, CryptorManagerGenerationWrap)
+TEST_F(CryptorManagerTests, CryptorManagerGenerationWrap)
 {
     EXPECT_EQ(ComputeWrappedGeneration(0, 0), KeyGeneration{0});
     EXPECT_EQ(ComputeWrappedGeneration(0, 1), KeyGeneration{1});
@@ -126,7 +150,7 @@ TEST_F(DaveTests, CryptorManagerGenerationWrap)
               KeyGeneration{12 * kGenerationWrap + 10});
 }
 
-TEST_F(DaveTests, CryptorManagerBigNonce)
+TEST_F(CryptorManagerTests, CryptorManagerBigNonce)
 {
     EXPECT_EQ(ComputeWrappedBigNonce(0, 0), 0u);
     EXPECT_EQ(ComputeWrappedBigNonce(0, 1), 1u);
@@ -144,7 +168,17 @@ TEST_F(DaveTests, CryptorManagerBigNonce)
               11 << kRatchetGenerationShiftBits | 294u);
 }
 
-TEST_F(DaveTests, CryptorManagerNoReprocess)
+TEST_F(CryptorManagerTests, CryptorManagerCapturesDomainIdentity)
+{
+    MockClock clock;
+
+    auto userId = std::string("12345678901234567890");
+    CryptorManager cryptorManager{clock, std::make_unique<StaticKeyRatchet>(userId)};
+    EXPECT_EQ(cryptorManager.GetDomainIdentity(),
+              std::vector<uint8_t>(userId.begin(), userId.end()));
+}
+
+TEST_F(CryptorManagerTests, CryptorManagerNoReprocess)
 {
     auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
     EXPECT_CALL(*mockKeyRatchet, GetKey(0));
@@ -192,6 +226,82 @@ TEST_F(DaveTests, CryptorManagerNoReprocess)
     EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 9));
     EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 10));
     EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 11));
+}
+
+TEST_F(CryptorManagerTests, CryptorManagerEarlyMissingNonces)
+{
+    auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
+
+    MockClock clock;
+    CryptorManager cryptorManager{clock, std::move(mockKeyRatchet)};
+
+    // The first nonce we see is not the first nonce that was generated: the ones before it are
+    // missing, not non-existent, so they must still be processable if they arrive late.
+    cryptorManager.ReportCryptorSuccess(0, 3);
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 0));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 1));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 2));
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 3));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 4));
+
+    // Late arrivals are consumed one by one, leaving the others alone.
+    cryptorManager.ReportCryptorSuccess(0, 1);
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 0));
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 1));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 2));
+
+    cryptorManager.ReportCryptorSuccess(0, 0);
+    cryptorManager.ReportCryptorSuccess(0, 2);
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 0));
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 2));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 4));
+}
+
+TEST_F(CryptorManagerTests, CryptorManagerEarlyMissingNoncesStartAtZero)
+{
+    auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
+
+    MockClock clock;
+    CryptorManager cryptorManager{clock, std::move(mockKeyRatchet)};
+
+    // Starting at nonce 0 leaves nothing missing behind it.
+    cryptorManager.ReportCryptorSuccess(0, 0);
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 0));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 1));
+}
+
+TEST_F(CryptorManagerTests, CryptorManagerEarlyMissingNoncesCapped)
+{
+    auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
+
+    MockClock clock;
+    CryptorManager cryptorManager{clock, std::move(mockKeyRatchet)};
+
+    // A very late stream start only tracks the most recent kMaxMissingNonces nonces.
+    constexpr TruncatedSyncNonce kFirstNonce = kMaxMissingNonces + 5;
+    cryptorManager.ReportCryptorSuccess(0, kFirstNonce);
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 0));
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, 4));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, 5));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, kFirstNonce - 1));
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(0, kFirstNonce));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, kFirstNonce + 1));
+}
+
+TEST_F(CryptorManagerTests, CryptorManagerEarlyMissingNoncesAcrossGenerations)
+{
+    auto mockKeyRatchet = std::make_unique<MockKeyRatchet>();
+
+    MockClock clock;
+    CryptorManager cryptorManager{clock, std::move(mockKeyRatchet)};
+
+    // The bootstrap gap is measured on the wrapped big nonce, so an early generation-0 packet
+    // arriving after a generation-1 one is still processable.
+    constexpr TruncatedSyncNonce kFirstNonce = 1 << kRatchetGenerationShiftBits | 2;
+    cryptorManager.ReportCryptorSuccess(1, kFirstNonce);
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(1, kFirstNonce - 1));
+    EXPECT_FALSE(cryptorManager.CanProcessNonce(1, kFirstNonce));
+    EXPECT_TRUE(cryptorManager.CanProcessNonce(0, (1 << kRatchetGenerationShiftBits) - 1));
 }
 
 } // namespace test

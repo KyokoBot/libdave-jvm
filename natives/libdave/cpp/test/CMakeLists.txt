@@ -13,6 +13,10 @@ target_include_directories(${TEST_APP_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(libdave_test PRIVATE ${LIB_NAME} GTest::gtest_main GTest::gmock MLSPP::bytes MLSPP::mlspp)
 
+if (PERSISTENT_KEYS)
+    target_compile_definitions(${TEST_APP_NAME} PRIVATE DAVE_PERSISTENT_KEYS)
+endif()
+
 add_test(NAME ${TEST_APP_NAME} COMMAND ${TEST_APP_NAME})
 
 if(WIN32 AND BUILD_SHARED_LIBS)

@@ -10,7 +10,8 @@ namespace discord {
 namespace dave {
 
 MlsKeyRatchet::MlsKeyRatchet(::mlspp::CipherSuite suite, bytes baseSecret) noexcept
-  : hashRatchet_(suite, std::move(baseSecret))
+  : hashRatchet_(suite, baseSecret)
+  , domainIdentity_(std::move(baseSecret.as_vec()))
 {
 }
 
@@ -35,6 +36,12 @@ EncryptionKey MlsKeyRatchet::GetKey(KeyGeneration generation) noexcept
 void MlsKeyRatchet::DeleteKey(KeyGeneration generation) noexcept
 {
     hashRatchet_.erase(generation);
+}
+
+std::vector<uint8_t> MlsKeyRatchet::GetDomainIdentity() const noexcept
+{
+    // The base secret is derived per (epoch, user), so it identifies the key domain
+    return domainIdentity_;
 }
 
 } // namespace dave

@@ -29,6 +29,7 @@ EncryptionKey MakeStaticSenderKey(uint64_t u64userID)
 
 StaticKeyRatchet::StaticKeyRatchet(const std::string& userId) noexcept
   : u64userID_(strtoull(userId.c_str(), nullptr, 10))
+  , domainIdentity_(userId.begin(), userId.end())
 {
 }
 
@@ -42,6 +43,11 @@ EncryptionKey StaticKeyRatchet::GetKey(KeyGeneration generation) noexcept
 void StaticKeyRatchet::DeleteKey([[maybe_unused]] KeyGeneration generation) noexcept
 {
     // noop
+}
+
+std::vector<uint8_t> StaticKeyRatchet::GetDomainIdentity() const noexcept
+{
+    return domainIdentity_;
 }
 
 } // namespace test
