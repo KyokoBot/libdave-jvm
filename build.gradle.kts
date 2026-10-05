@@ -1,7 +1,6 @@
 // mostly yanked from https://github.com/MinnDevelopment/udpqueue.rs/blob/master/build.gradle.kts
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SonatypeHost
-import java.io.ByteArrayOutputStream
 
 plugins {
     id("com.vanniktech.maven.publish") version "0.32.0" apply false
@@ -127,28 +126,22 @@ subprojects {
 data class VersionInfo(val version: String, val isCommitHash: Boolean)
 
 fun getGitVersion(): VersionInfo {
-    var versionStr = ByteArrayOutputStream()
-    var result = exec {
-        standardOutput = versionStr
-        errorOutput = versionStr
+    val tag = providers.exec {
         isIgnoreExitValue = true
         commandLine("git", "describe", "--exact-match", "--tags")
     }
-    if (result.exitValue == 0) {
-        return VersionInfo(versionStr.toString().trim(), false)
+    if (tag.result.get().exitValue == 0) {
+        return VersionInfo(tag.standardOutput.asText.get().trim(), false)
     }
 
-
-    versionStr = ByteArrayOutputStream()
-    result = exec {
-        standardOutput = versionStr
-        errorOutput = versionStr
+    val commit = providers.exec {
         isIgnoreExitValue = true
         commandLine("git", "describe", "--match=NeVeRmAtCh", "--always", "--abbrev=9", "--dirty")
     }
-    if (result.exitValue != 0) {
-        throw GradleException("Failed to get git version: ${versionStr.toString().trim()}")
+    if (commit.result.get().exitValue != 0) {
+        val output = commit.standardOutput.asText.get() + commit.standardError.asText.get()
+        throw GradleException("Failed to get git version: ${output.trim()}")
     }
 
-    return VersionInfo(versionStr.toString().trim(), true)
+    return VersionInfo(commit.standardOutput.asText.get().trim(), true)
 }

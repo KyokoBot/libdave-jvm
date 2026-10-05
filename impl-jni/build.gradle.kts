@@ -15,6 +15,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Netty disables Unsafe by default on Java 25+, which hides the ByteBuf memory address fast path.
+    systemProperty("io.netty.noUnsafe", "false")
 }
 
 mavenPublishing {

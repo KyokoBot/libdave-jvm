@@ -13,7 +13,7 @@ Minimum Java version is 8. See below for native dependency compatibility.
 
 - **`api`**: Defines the common Java interfaces for the DAVE protocol (Session, Encryptor, Decryptor, etc.).
 - **`impl-jni`**: An implementation of the API that binds to the official C++ `libdave` using JNI. Strongly recommended for production use.
-- **`natives`**: Contains the CMake project for `libdave` JNI bindings and supporting Gradle project that handles publishing the natives to a Maven repository.
+- **`natives`**: Contains the CMake project for the `libdave` bindings and supporting Gradle project that handles publishing the natives to a Maven repository.
 
 ## Usage
 
