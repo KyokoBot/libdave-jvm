@@ -7,6 +7,7 @@ import moe.kyokobot.libdave.MediaType;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 
@@ -40,6 +41,8 @@ public class FfmDecryptor extends FfmHandle implements Decryptor {
     @Override
     public int decrypt(MediaType mediaType, byte[] encryptedFrame, byte[] frame) {
         assertOpen();
+        Objects.requireNonNull(encryptedFrame, "encryptedFrame");
+        Objects.requireNonNull(frame, "frame");
         // See FfmEncryptor#encrypt(MediaType, int, byte[], byte[]) for why this copies.
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment encryptedFrameSegment = allocateBytes(arena, encryptedFrame);

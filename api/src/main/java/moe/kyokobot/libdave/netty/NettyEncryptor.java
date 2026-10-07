@@ -19,7 +19,8 @@ public interface NettyEncryptor extends Encryptor {
      * @param mediaType      The type of media.
      * @param ssrc           The SSRC of the stream.
      * @param frame          The input ByteBuf containing the plaintext frame.
-     * @param encryptedFrame The output ByteBuf to write the encrypted frame into.
+     * @param encryptedFrame The output ByteBuf to write the encrypted frame into. Outside passthrough mode it
+     *                       must have room for {@link #getMaxCiphertextByteSize} bytes, or encryption fails.
      * @return The number of bytes written to {@code encryptedFrame} on success, or a negative error code on failure.
      */
     int encrypt(MediaType mediaType, int ssrc, ByteBuf frame, ByteBuf encryptedFrame);

@@ -6,6 +6,7 @@ import moe.kyokobot.libdave.MediaType;
 import moe.kyokobot.libdave.natives.DaveNativeBindings;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 public class NativeDecryptor extends DaveNativeHandle implements Decryptor {
     public NativeDecryptor(long handle) {
@@ -38,6 +39,8 @@ public class NativeDecryptor extends DaveNativeHandle implements Decryptor {
     @Override
     public int decrypt(MediaType mediaType, byte[] encryptedFrame, byte[] frame) {
         assertOpen();
+        Objects.requireNonNull(encryptedFrame, "encryptedFrame");
+        Objects.requireNonNull(frame, "frame");
         return DaveNativeBindings.inst().daveDecryptorDecrypt(handle, mediaType.getValue(), encryptedFrame, frame);
     }
 

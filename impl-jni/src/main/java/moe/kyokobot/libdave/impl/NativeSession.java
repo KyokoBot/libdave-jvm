@@ -8,6 +8,7 @@ import moe.kyokobot.libdave.natives.DaveNativeBindings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static moe.kyokobot.libdave.impl.Constants.COMMIT_RESULT_FAILED;
@@ -21,6 +22,7 @@ public class NativeSession extends DaveNativeHandle implements Session {
     @Override
     public void init(int version, long groupId, String selfUserId) {
         assertOpen();
+        Objects.requireNonNull(selfUserId, "selfUserId");
         DaveNativeBindings.inst().daveSessionInit(handle, version, groupId, selfUserId);
     }
 
@@ -51,12 +53,15 @@ public class NativeSession extends DaveNativeHandle implements Session {
     @Override
     public void setExternalSender(byte[] externalSender) {
         assertOpen();
+        Objects.requireNonNull(externalSender, "externalSender");
         DaveNativeBindings.inst().daveSessionSetExternalSender(handle, externalSender);
     }
 
     @Override
     public byte[] processProposals(byte @NotNull [] proposals, @NotNull String[] recognizedUserIds) {
         assertOpen();
+        Objects.requireNonNull(proposals, "proposals");
+        Objects.requireNonNull(recognizedUserIds, "recognizedUserIds");
 
         return DaveNativeBindings.inst().daveSessionProcessProposals(handle, proposals, recognizedUserIds);
     }
@@ -64,6 +69,7 @@ public class NativeSession extends DaveNativeHandle implements Session {
     @Override
     public @NotNull CommitResult processCommit(byte @NotNull [] commit) {
         assertOpen();
+        Objects.requireNonNull(commit, "commit");
 
         Object result = DaveNativeBindings.inst().daveSessionProcessCommit(handle, commit);
         if (result instanceof Integer) {
@@ -80,6 +86,8 @@ public class NativeSession extends DaveNativeHandle implements Session {
     @Override
     public @Nullable RosterMap processWelcome(byte @NotNull [] welcome, @NotNull String[] recognizedUserIds) {
         assertOpen();
+        Objects.requireNonNull(welcome, "welcome");
+        Objects.requireNonNull(recognizedUserIds, "recognizedUserIds");
         return DaveNativeBindings.inst().daveSessionProcessWelcome(handle, welcome, recognizedUserIds);
     }
 
@@ -92,6 +100,7 @@ public class NativeSession extends DaveNativeHandle implements Session {
     @Override
     public @Nullable KeyRatchet getKeyRatchet(String userId) {
         assertOpen();
+        Objects.requireNonNull(userId, "userId");
         long keyRatchetHandle = DaveNativeBindings.inst().daveSessionGetKeyRatchet(handle, userId);
         if (keyRatchetHandle == 0) return null;
         return new NativeKeyRatchet(keyRatchetHandle);
@@ -100,6 +109,7 @@ public class NativeSession extends DaveNativeHandle implements Session {
     @Override
     public CompletableFuture<byte[]> getPairwiseFingerprint(int version, String userId) {
         assertOpen();
+        Objects.requireNonNull(userId, "userId");
         CompletableFuture<byte[]> future = new CompletableFuture<>();
 
         DaveNativeBindings.inst().daveSessionGetPairwiseFingerprint(handle, version, userId, future::complete);

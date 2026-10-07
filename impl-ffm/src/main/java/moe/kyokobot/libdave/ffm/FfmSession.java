@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -50,6 +51,7 @@ public class FfmSession extends FfmHandle implements Session {
     @Override
     public void init(int version, long groupId, String selfUserId) {
         assertOpen();
+        Objects.requireNonNull(selfUserId, "selfUserId");
         try (Arena arena = Arena.ofConfined()) {
             KyokoDave.sessionInit(handle, version, groupId, arena.allocateFrom(selfUserId));
         }
@@ -87,6 +89,7 @@ public class FfmSession extends FfmHandle implements Session {
     @Override
     public void setExternalSender(byte[] externalSender) {
         assertOpen();
+        Objects.requireNonNull(externalSender, "externalSender");
         try (Arena arena = Arena.ofConfined()) {
             KyokoDave.sessionSetExternalSender(handle, allocateBytes(arena, externalSender), externalSender.length);
         }
@@ -95,6 +98,8 @@ public class FfmSession extends FfmHandle implements Session {
     @Override
     public byte[] processProposals(byte @NotNull [] proposals, @NotNull String[] recognizedUserIds) {
         assertOpen();
+        Objects.requireNonNull(proposals, "proposals");
+        Objects.requireNonNull(recognizedUserIds, "recognizedUserIds");
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment outData = arena.allocate(ADDRESS);
             MemorySegment outSize = KyokoDave.allocateSize(arena);
@@ -109,6 +114,7 @@ public class FfmSession extends FfmHandle implements Session {
     @Override
     public @NotNull CommitResult processCommit(byte @NotNull [] commit) {
         assertOpen();
+        Objects.requireNonNull(commit, "commit");
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment outRoster = arena.allocate(ADDRESS);
             int result = KyokoDave.sessionProcessCommit(handle, allocateBytes(arena, commit), commit.length,
@@ -122,6 +128,8 @@ public class FfmSession extends FfmHandle implements Session {
     @Override
     public @Nullable RosterMap processWelcome(byte @NotNull [] welcome, @NotNull String[] recognizedUserIds) {
         assertOpen();
+        Objects.requireNonNull(welcome, "welcome");
+        Objects.requireNonNull(recognizedUserIds, "recognizedUserIds");
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment roster = KyokoDave.sessionProcessWelcome(handle,
                     allocateBytes(arena, welcome), welcome.length,
@@ -145,6 +153,7 @@ public class FfmSession extends FfmHandle implements Session {
     @Override
     public @Nullable KeyRatchet getKeyRatchet(String userId) {
         assertOpen();
+        Objects.requireNonNull(userId, "userId");
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment keyRatchet = KyokoDave.sessionGetKeyRatchet(handle, arena.allocateFrom(userId));
             if (keyRatchet.address() == 0) return null;
@@ -155,6 +164,7 @@ public class FfmSession extends FfmHandle implements Session {
     @Override
     public CompletableFuture<byte[]> getPairwiseFingerprint(int version, String userId) {
         assertOpen();
+        Objects.requireNonNull(userId, "userId");
         CompletableFuture<byte[]> future = new CompletableFuture<>();
 
         MemorySegment userData = Callbacks.register((Consumer<byte[]>) future::complete);

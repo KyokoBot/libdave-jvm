@@ -8,6 +8,7 @@ import moe.kyokobot.libdave.callbacks.EncryptorProtocolVersionChangedCallback;
 import moe.kyokobot.libdave.natives.DaveNativeBindings;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 public class NativeEncryptor extends DaveNativeHandle implements Encryptor {
     public NativeEncryptor(long handle) {
@@ -52,6 +53,8 @@ public class NativeEncryptor extends DaveNativeHandle implements Encryptor {
     @Override
     public int encrypt(MediaType mediaType, int ssrc, byte[] frame, byte[] encryptedFrame) {
         assertOpen();
+        Objects.requireNonNull(frame, "frame");
+        Objects.requireNonNull(encryptedFrame, "encryptedFrame");
         return DaveNativeBindings.inst().daveEncryptorEncrypt(handle, mediaType.getValue(), ssrc, frame, encryptedFrame);
     }
 

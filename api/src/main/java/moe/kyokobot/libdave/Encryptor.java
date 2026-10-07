@@ -62,7 +62,8 @@ public interface Encryptor extends AutoCloseable {
      * @param mediaType      The type of media.
      * @param ssrc           The SSRC of the stream.
      * @param frame          The input buffer containing the plaintext frame.
-     * @param encryptedFrame The output buffer to write the encrypted frame into.
+     * @param encryptedFrame The output buffer to write the encrypted frame into. Outside passthrough mode it
+     *                       must have room for {@link #getMaxCiphertextByteSize} bytes, or encryption fails.
      * @return The number of bytes written to {@code encryptedFrame} on success, or a negative error code (see {@link EncryptorResultCode}) on failure.
      */
     int encrypt(MediaType mediaType, int ssrc, byte[] frame, byte[] encryptedFrame);
@@ -73,7 +74,8 @@ public interface Encryptor extends AutoCloseable {
      * @param mediaType      The type of media.
      * @param ssrc           The SSRC of the stream.
      * @param frame          The input ByteBuffer containing the plaintext frame.
-     * @param encryptedFrame The output ByteBuffer to write the encrypted frame into.
+     * @param encryptedFrame The output ByteBuffer to write the encrypted frame into. Outside passthrough mode it
+     *                       must have room for {@link #getMaxCiphertextByteSize} bytes, or encryption fails.
      * @return The number of bytes written to {@code encryptedFrame} on success, or a negative error code on failure.
      */
     int encrypt(MediaType mediaType, int ssrc, ByteBuffer frame, ByteBuffer encryptedFrame);

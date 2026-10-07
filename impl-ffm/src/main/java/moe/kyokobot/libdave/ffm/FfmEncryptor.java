@@ -9,6 +9,7 @@ import moe.kyokobot.libdave.callbacks.EncryptorProtocolVersionChangedCallback;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 
@@ -54,6 +55,8 @@ public class FfmEncryptor extends FfmHandle implements Encryptor {
     @Override
     public int encrypt(MediaType mediaType, int ssrc, byte[] frame, byte[] encryptedFrame) {
         assertOpen();
+        Objects.requireNonNull(frame, "frame");
+        Objects.requireNonNull(encryptedFrame, "encryptedFrame");
         // libdave may log or invoke callbacks while encrypting, which rules out critical downcalls
         // (and with them, passing heap arrays directly), so copy through native memory instead.
         try (Arena arena = Arena.ofConfined()) {
