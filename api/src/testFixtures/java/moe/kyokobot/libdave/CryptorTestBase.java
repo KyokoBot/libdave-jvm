@@ -3,9 +3,9 @@ package moe.kyokobot.libdave;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 // Ported from libdave test suite
 public abstract class CryptorTestBase {
@@ -101,4 +101,173 @@ public abstract class CryptorTestBase {
         }
     }
 
+    @Test
+    public void passthroughByteArrays() {
+        DaveFactory factory = getDaveFactory();
+        try (Encryptor encryptor = factory.createEncryptor();
+             Decryptor decryptor = factory.createDecryptor()) {
+            encryptor.assignSsrcToCodec(0, Codec.OPUS);
+            encryptor.setPassthroughMode(true);
+            decryptor.transitionToPassthroughMode(true);
+
+            byte[] encrypted = new byte[RANDOM_BYTES.length];
+            assertEquals(RANDOM_BYTES.length, encryptor.encrypt(MediaType.AUDIO, 0, RANDOM_BYTES, encrypted));
+            assertArrayEquals(RANDOM_BYTES, encrypted);
+
+            byte[] decrypted = new byte[RANDOM_BYTES.length];
+            assertEquals(RANDOM_BYTES.length, decryptor.decrypt(MediaType.AUDIO, encrypted, decrypted));
+            assertArrayEquals(RANDOM_BYTES, decrypted);
+        }
+    }
+
+    @Test
+    public void passthroughTruncatesToOutputCapacity() {
+        DaveFactory factory = getDaveFactory();
+        int capacity = RANDOM_BYTES.length / 2;
+        try (Encryptor encryptor = factory.createEncryptor();
+             Decryptor decryptor = factory.createDecryptor()) {
+            encryptor.setPassthroughMode(true);
+            decryptor.transitionToPassthroughMode(true);
+
+            ByteBuffer encrypted = ByteBuffer.allocateDirect(RANDOM_BYTES.length);
+            encrypted.limit(capacity);
+            assertEquals(capacity, encryptor.encrypt(MediaType.AUDIO, 0,
+                    TestUtil.arrToDirectByteBuffer(RANDOM_BYTES), encrypted));
+            encrypted.clear();
+            for (int i = capacity; i < RANDOM_BYTES.length; i++) {
+                assertEquals(0, encrypted.get(i), "passthrough wrote past the buffer limit");
+            }
+
+            byte[] decrypted = new byte[capacity];
+            assertEquals(capacity, decryptor.decrypt(MediaType.AUDIO, RANDOM_BYTES, decrypted));
+        }
+    }
+
+    @Test
+    public void emptyFramesPassThrough() {
+        DaveFactory factory = getDaveFactory();
+        try (Encryptor encryptor = factory.createEncryptor();
+             Decryptor decryptor = factory.createDecryptor()) {
+            encryptor.setPassthroughMode(true);
+            decryptor.transitionToPassthroughMode(true);
+
+            assertEquals(0, encryptor.encrypt(MediaType.AUDIO, 0, new byte[0], new byte[0]));
+            assertEquals(0, encryptor.encrypt(MediaType.VIDEO, 0, ByteBuffer.allocateDirect(0),
+                    ByteBuffer.allocateDirect(0)));
+            assertEquals(0, decryptor.decrypt(MediaType.AUDIO, new byte[0], new byte[0]));
+        }
+    }
+
+    @Test
+    public void decryptorRejectsUnencryptedFrameWithoutPassthrough() {
+        try (Decryptor decryptor = getDaveFactory().createDecryptor()) {
+            assertEquals(-DecryptorResultCode.DECRYPTION_FAILURE.getValue(),
+                    decryptor.decrypt(MediaType.AUDIO, RANDOM_BYTES, new byte[RANDOM_BYTES.length]));
+        }
+    }
+
+    @Test
+    public void heapByteBuffersAreRejected() {
+        DaveFactory factory = getDaveFactory();
+        ByteBuffer direct = ByteBuffer.allocateDirect(RANDOM_BYTES.length);
+        ByteBuffer heap = ByteBuffer.allocate(RANDOM_BYTES.length);
+        try (Encryptor encryptor = factory.createEncryptor();
+             Decryptor decryptor = factory.createDecryptor()) {
+            encryptor.setPassthroughMode(true);
+            decryptor.transitionToPassthroughMode(true);
+
+            assertThrows(IllegalArgumentException.class, () -> encryptor.encrypt(MediaType.AUDIO, 0, heap, direct));
+            assertThrows(IllegalArgumentException.class, () -> encryptor.encrypt(MediaType.AUDIO, 0, direct, heap));
+            assertThrows(IllegalArgumentException.class, () -> decryptor.decrypt(MediaType.AUDIO, heap, direct));
+            assertThrows(IllegalArgumentException.class, () -> decryptor.decrypt(MediaType.AUDIO, direct, heap));
+        }
+    }
+
+    @Test
+    public void nullArgumentsAreRejected() {
+        DaveFactory factory = getDaveFactory();
+        byte[] array = new byte[1];
+        ByteBuffer buffer = ByteBuffer.allocateDirect(1);
+        try (Encryptor encryptor = factory.createEncryptor();
+             Decryptor decryptor = factory.createDecryptor()) {
+            encryptor.setPassthroughMode(true);
+            decryptor.transitionToPassthroughMode(true);
+
+            assertThrows(NullPointerException.class, () -> encryptor.encrypt(MediaType.AUDIO, 0, null, array));
+            assertThrows(NullPointerException.class, () -> encryptor.encrypt(MediaType.AUDIO, 0, array, null));
+            assertThrows(NullPointerException.class,
+                    () -> encryptor.encrypt(MediaType.AUDIO, 0, (ByteBuffer) null, buffer));
+            assertThrows(NullPointerException.class,
+                    () -> encryptor.encrypt(MediaType.AUDIO, 0, buffer, (ByteBuffer) null));
+            assertThrows(NullPointerException.class, () -> encryptor.encrypt(null, 0, array, array));
+            assertThrows(NullPointerException.class, () -> encryptor.assignSsrcToCodec(0, null));
+            assertThrows(NullPointerException.class, () -> decryptor.decrypt(MediaType.AUDIO, null, array));
+            assertThrows(NullPointerException.class, () -> decryptor.decrypt(MediaType.AUDIO, array, null));
+            assertThrows(NullPointerException.class,
+                    () -> decryptor.decrypt(MediaType.AUDIO, (ByteBuffer) null, buffer));
+            assertThrows(NullPointerException.class,
+                    () -> decryptor.decrypt(MediaType.AUDIO, buffer, (ByteBuffer) null));
+            assertThrows(NullPointerException.class, () -> decryptor.decrypt(null, array, array));
+
+            assertEquals(1, encryptor.encrypt(MediaType.AUDIO, 0, array, array));
+        }
+    }
+
+    @Test
+    public void closedCryptorsRejectCalls() {
+        DaveFactory factory = getDaveFactory();
+        byte[] array = new byte[1];
+        ByteBuffer buffer = ByteBuffer.allocateDirect(1);
+
+        Encryptor encryptor = factory.createEncryptor();
+        encryptor.close();
+        encryptor.close();
+        assertThrows(IllegalStateException.class, () -> encryptor.setPassthroughMode(true));
+        assertThrows(IllegalStateException.class, () -> encryptor.assignSsrcToCodec(0, Codec.OPUS));
+        assertThrows(IllegalStateException.class, encryptor::getProtocolVersion);
+        assertThrows(IllegalStateException.class, () -> encryptor.encrypt(MediaType.AUDIO, 0, array, array));
+        assertThrows(IllegalStateException.class, () -> encryptor.encrypt(MediaType.AUDIO, 0, buffer, buffer));
+        assertThrows(IllegalStateException.class, () -> encryptor.setProtocolVersionChangedCallback(() -> {
+        }));
+
+        Decryptor decryptor = factory.createDecryptor();
+        decryptor.close();
+        decryptor.close();
+        assertThrows(IllegalStateException.class, () -> decryptor.transitionToPassthroughMode(true));
+        assertThrows(IllegalStateException.class, () -> decryptor.decrypt(MediaType.AUDIO, array, array));
+        assertThrows(IllegalStateException.class, () -> decryptor.decrypt(MediaType.AUDIO, buffer, buffer));
+    }
+
+    @Test
+    public void throwingProtocolVersionCallbackDoesNotPropagate() {
+        AtomicInteger calls = new AtomicInteger();
+        try (Encryptor encryptor = getDaveFactory().createEncryptor()) {
+            encryptor.setProtocolVersionChangedCallback(() -> {
+                calls.incrementAndGet();
+                throw new IllegalStateException("thrown from the protocol version callback on purpose");
+            });
+
+            encryptor.setPassthroughMode(true);
+            encryptor.setPassthroughMode(false);
+            assertEquals(2, calls.get());
+
+            // The encryptor keeps working after the callback threw.
+            encryptor.setPassthroughMode(true);
+            assertEquals(1, encryptor.encrypt(MediaType.AUDIO, 0, new byte[]{42}, new byte[1]));
+        }
+    }
+
+    @Test
+    public void replacedProtocolVersionCallbackIsNotCalled() {
+        AtomicInteger first = new AtomicInteger();
+        AtomicInteger second = new AtomicInteger();
+        try (Encryptor encryptor = getDaveFactory().createEncryptor()) {
+            encryptor.setProtocolVersionChangedCallback(first::incrementAndGet);
+            encryptor.setProtocolVersionChangedCallback(second::incrementAndGet);
+
+            encryptor.setPassthroughMode(true);
+            assertEquals(0, first.get());
+            assertEquals(1, second.get());
+        }
+    }
 }

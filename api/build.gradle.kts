@@ -9,6 +9,14 @@ dependencies {
     testFixturesImplementation(platform(libs.junit.bom))
     testFixturesImplementation(libs.junit.jupiter)
     testFixturesApi(libs.netty.buffer)
+
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 mavenPublishing {

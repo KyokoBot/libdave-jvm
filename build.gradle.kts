@@ -32,6 +32,20 @@ subprojects {
         classpath += project.the<SourceSetContainer>()["main"].output
     }
 
+    tasks.withType<Test>().configureEach {
+        // Test-only native helper for TestExternalSender, built from the dave-jvm-testing CMake target.
+        val testingLibrary = rootDir.resolve("natives").listFiles().orEmpty()
+            .filter { it.isDirectory && it.name.startsWith("cmake-build-") }
+            .flatMap { dir ->
+                listOf("libdave-jvm-testing.so", "libdave-jvm-testing.dylib", "dave-jvm-testing.dll").map(dir::resolve)
+            }
+            .firstOrNull { it.isFile }
+        if (testingLibrary != null) {
+            inputs.file(testingLibrary).withPropertyName("testingLibrary")
+            systemProperty("libdave.testing.path", testingLibrary.absolutePath)
+        }
+    }
+
     repositories {
         mavenLocal()
         mavenCentral()

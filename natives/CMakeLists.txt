@@ -164,7 +164,28 @@ foreach(_config Release Debug RelWithDebInfo MinSizeRel)
     COMPILE_PDB_OUTPUT_DIRECTORY_${_config} "${CMAKE_BINARY_DIR}")
 endforeach()
 
+# Test-only helper for the Java test suites (see README.md).
+set(DJ_TEST_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/src/test/cpp)
+add_library(dave-jvm-testing SHARED EXCLUDE_FROM_ALL
+  ${DJ_TEST_ROOT}/test_external_sender.cpp
+  ${PROJECT_SOURCE_DIR}/libdave/cpp/test/external_sender.cpp
+)
+target_link_libraries(dave-jvm-testing PRIVATE JNI::JNI MLSPP::mlspp OpenSSL::Crypto)
+target_compile_features(dave-jvm-testing PRIVATE cxx_std_17)
+target_include_directories(dave-jvm-testing PRIVATE
+  ${DJ_ROOT}
+  ${PROJECT_SOURCE_DIR}/libdave/cpp/includes
+  ${PROJECT_SOURCE_DIR}/libdave/cpp/src
+  ${PROJECT_SOURCE_DIR}/libdave/cpp/test
+)
+foreach(_config Release Debug RelWithDebInfo MinSizeRel)
+  set_target_properties(dave-jvm-testing PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY_${_config} "${CMAKE_BINARY_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_${_config} "${CMAKE_BINARY_DIR}")
+endforeach()
+
 if(LINUX)
+  target_link_options(dave-jvm-testing PRIVATE "-static-libstdc++" "-static-libgcc")
   target_link_options(dave-jvm PRIVATE "-Wl,--version-script,${DJ_ROOT}/libdave.exports" "-Wl,--gc-sections" "-Wl,--build-id" "-static-libstdc++" "-static-libgcc")
   add_custom_command(TARGET dave-jvm POST_BUILD
     COMMAND ${CMAKE_STRIP} --only-keep-debug -o $<TARGET_FILE:dave-jvm>.debug $<TARGET_FILE:dave-jvm>
