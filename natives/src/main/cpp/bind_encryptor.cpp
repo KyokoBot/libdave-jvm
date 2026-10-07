@@ -75,8 +75,16 @@ int32_t kyoko_dave_encryptor_encrypt(kyoko_dave_encryptor *encryptor,
                                      const uint8_t *frame, size_t frame_size,
                                      uint8_t *encrypted_frame,
                                      size_t encrypted_frame_capacity) {
+  auto encryptorPtr = toEncryptor(encryptor);
+  if (!encryptorPtr->IsPassthroughMode() &&
+      encrypted_frame_capacity <
+          encryptorPtr->GetMaxCiphertextByteSize(
+              static_cast<MediaType>(media_type), frame_size)) {
+    return -static_cast<int32_t>(IEncryptor::EncryptionFailure);
+  }
+
   size_t bytesWritten = 0;
-  auto result = toEncryptor(encryptor)->Encrypt(
+  auto result = encryptorPtr->Encrypt(
       static_cast<MediaType>(media_type), ssrc,
       MakeArrayView(frame, frame_size),
       MakeArrayView(encrypted_frame, encrypted_frame_capacity), &bytesWritten);
