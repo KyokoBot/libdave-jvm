@@ -78,9 +78,6 @@ dependencies {
 
 ### Usage with JDA
 
-> [!IMPORTANT]
-> We recommend using [JDAVE](https://github.com/MinnDevelopment/jdave) with JDA, unless you have major blockers preventing you from using Java 25+ or you use an unsupported architecture/platform configuration.
-
 **Gradle (Kotlin DSL):**
 
 ```kotlin
